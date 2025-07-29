@@ -61,12 +61,13 @@ COPY . .
 RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
 USER appuser
 
-# Expose the port that Streamlit runs on
+# Expose the port that Streamlit runs on (Railway will set PORT dynamically)
 EXPOSE 8501
 
-# Health check
+# Health check - use PORT environment variable if available
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8501/_stcore/health || exit 1
+    CMD curl -f http://localhost:${PORT:-8501}/_stcore/health || exit 1
 
 # Command to run the application
-CMD ["streamlit", "run", "main.py", "--server.port=8501", "--server.address=0.0.0.0", "--server.headless=true", "--server.enableCORS=false", "--server.enableXsrfProtection=false"]
+# Use Railway's PORT environment variable or default to 8501
+CMD streamlit run main.py --server.port=${PORT:-8501} --server.address=0.0.0.0 --server.headless=true --server.enableCORS=false --server.enableXsrfProtection=false
