@@ -1,12 +1,12 @@
 #!/bin/bash
 
 # Startup script for Railway deployment
-# Detects Railway environment and uses PORT variable only when needed
+# Uses PORT variable if it's set and valid, otherwise defaults to 8501
 
-# Check if we're running on Railway (Railway sets RAILWAY_ENVIRONMENT)
-if [ -n "$RAILWAY_ENVIRONMENT" ] && [ -n "$PORT" ]; then
-    echo "Starting Streamlit app on Railway with port $PORT"
-    # Railway deployment - use PORT variable
+# Check if PORT is set and is a valid number
+if [ -n "$PORT" ] && [ "$PORT" -eq "$PORT" ] 2>/dev/null; then
+    echo "Starting Streamlit app with port $PORT"
+    # Use PORT variable (Railway or custom)
     exec streamlit run main.py \
         --server.port=$PORT \
         --server.address=0.0.0.0 \
