@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  resume-parser:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      - PORT=8080
+      - STREAMLIT_SERVER_PORT=$PORT
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-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}
+      - RAILWAY_ENVIRONMENT=local
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/_stcore/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s 
