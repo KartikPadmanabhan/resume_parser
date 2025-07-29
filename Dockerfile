@@ -9,6 +9,7 @@ ENV PYTHONUNBUFFERED=1 \
     DEBIAN_FRONTEND=noninteractive
 
 # Install system dependencies including OpenGL libraries
+# Group all apt operations together for better caching
 RUN apt-get update && apt-get install -y \
     # Core system dependencies
     build-essential \
@@ -26,50 +27,46 @@ RUN apt-get update && apt-get install -y \
     # OpenGL and graphics libraries (fixes libGL.so.1 error)
     libgl1-mesa-glx \
     libgl1-mesa-dri \
-    libglib2.0-0 \
-    libsm6 \
-    libxext6 \
-    libxrender-dev \
-    libgomp1 \
-    libglib2.0-0 \
-    # X11 libraries for headless operation
-    libx11-6 \
-    libxext6 \
-    libxrender1 \
-    libxtst6 \
-    libxi6 \
-    # Additional graphics support
-    libfontconfig1 \
-    libfreetype6 \
-    # Clean up
-    && apt-get clean \
+    libgl1-mesa-dev \
+    libglu1-mesa \
+    libglu1-mesa-dev \
+    # Additional dependencies for unstructured
+    libmagic-dev \
+    libffi-dev \
+    libssl-dev \
     && rm -rf /var/lib/apt/lists/*
+
+# Create a non-root user for security
+RUN useradd --create-home --shell /bin/bash appuser
 
 # Set working directory
 WORKDIR /app
 
-# Copy requirements first for better Docker layer caching
+# Copy requirements first for better caching
 COPY requirements.txt .
 
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the entire application
+# Copy application code
 COPY . .
 
-# Make entrypoint script executable
-RUN chmod +x entrypoint.sh
+# Make entrypoint script executable and ensure proper line endings
+RUN chmod +x entrypoint.sh && \
+    dos2unix entrypoint.sh 2>/dev/null || true
 
-# Create a non-root user for security
-RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
+# Set proper permissions
+RUN chown -R appuser:appuser /app
+
+# Switch to non-root user
 USER appuser
 
-# Expose the port that Streamlit runs on (Railway will set PORT dynamically)
+# Expose port (Railway will override this)
 EXPOSE 8501
 
-# Health check (Railway handles health checks automatically)
-# HEALTHCHECK disabled for Railway compatibility with dynamic ports
+# Add healthcheck for Railway
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:${PORT:-8501}/_stcore/health || exit 1
 
-# Use shell script entrypoint for proper PORT environment variable expansion
-ENTRYPOINT ["/bin/bash"]
-CMD ["entrypoint.sh"]
+# Use the entrypoint script for proper debugging and PORT handling
+ENTRYPOINT ["./entrypoint.sh"]
