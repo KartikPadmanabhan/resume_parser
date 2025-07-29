@@ -4,7 +4,12 @@ nixPkgs = [
   "poppler_utils",
   "tesseract5",
   "file",
-  "pkg-config"
+  "pkg-config",
+  "mesa",
+  "libGL",
+  "xorg.libX11",
+  "xorg.libXext",
+  "xorg.libXrender"
 ]
 
 [start]
