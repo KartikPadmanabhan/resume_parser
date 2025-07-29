@@ -301,32 +301,4 @@ class ContentProcessor:
                 f"Low confidence in section classification: {', '.join(section_names)}"
             )
     
-    def get_section_summary(self, grouped_sections: List[GroupedElements]) -> Dict[str, Any]:
-        """
-        Get summary statistics for grouped sections.
-        
-        Args:
-            grouped_sections: List of grouped elements
-            
-        Returns:
-            Dictionary with section statistics
-        """
-        summary = {
-            'total_sections': len(grouped_sections),
-            'sections_found': [],
-            'element_counts': {},
-            'average_confidence': 0.0
-        }
-        
-        total_confidence = 0.0
-        
-        for section_group in grouped_sections:
-            section_name = section_group.section.value
-            summary['sections_found'].append(section_name)
-            summary['element_counts'][section_name] = len(section_group.elements)
-            total_confidence += section_group.confidence
-        
-        if grouped_sections:
-            summary['average_confidence'] = total_confidence / len(grouped_sections)
-        
-        return summary
+

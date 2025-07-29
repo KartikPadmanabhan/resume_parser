@@ -212,29 +212,4 @@ class DocumentParser:
         
         return type_mapping.get(extension, 'Unknown Document Type')
     
-    def get_document_stats(self, parsed_doc: ParsedDocument) -> Dict[str, Any]:
-        """
-        Get statistics about the parsed document.
-        
-        Args:
-            parsed_doc: Parsed document
-            
-        Returns:
-            Dictionary with document statistics
-        """
-        element_counts = {}
-        total_text_length = 0
-        
-        for section in parsed_doc.grouped_sections:
-            for element in section.elements:
-                element_type = element.element_type.value
-                element_counts[element_type] = element_counts.get(element_type, 0) + 1
-                total_text_length += len(element.text)
-        
-        return {
-            'total_elements': parsed_doc.total_elements,
-            'element_type_counts': element_counts,
-            'total_text_length': total_text_length,
-            'has_warnings': len(parsed_doc.parsing_warnings) > 0,
-            'warning_count': len(parsed_doc.parsing_warnings)
-        }
+
