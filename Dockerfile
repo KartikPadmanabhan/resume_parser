@@ -57,6 +57,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy the entire application
 COPY . .
 
+# Make Python wrapper script executable
+RUN chmod +x run_streamlit.py
+
 # Create a non-root user for security
 RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
 USER appuser
@@ -64,9 +67,8 @@ USER appuser
 # Expose the port that Streamlit runs on (Railway will set PORT dynamically)
 EXPOSE 8501
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8501/_stcore/health || exit 1
+# Health check (Railway handles health checks automatically)
+# HEALTHCHECK disabled for Railway compatibility with dynamic ports
 
 # Command to run the application (Railway will use Procfile)
-CMD ["streamlit", "run", "main.py", "--server.port=8501", "--server.address=0.0.0.0", "--server.headless=true", "--server.enableCORS=false", "--server.enableXsrfProtection=false"]
+CMD ["python", "run_streamlit.py"]
