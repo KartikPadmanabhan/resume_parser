@@ -36,7 +36,7 @@ RUN apt-get update && apt-get install -y \
     libssl-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Create a non-root user for security
+# Create a non-root user
 RUN useradd --create-home --shell /bin/bash appuser
 
 # Set working directory
@@ -51,22 +51,18 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application code
 COPY . .
 
-# Make entrypoint script executable and ensure proper line endings
-RUN chmod +x entrypoint.sh && \
-    dos2unix entrypoint.sh 2>/dev/null || true
-
-# Set proper permissions
+# Change ownership to appuser
 RUN chown -R appuser:appuser /app
 
-# Switch to non-root user
+# Switch to appuser
 USER appuser
 
-# Expose port (Railway will override this)
-EXPOSE 8501
+# Expose port (Railway will provide $PORT at runtime)
+EXPOSE $PORT
 
-# Add healthcheck for Railway
+# Health check (Railway will handle port configuration)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:${PORT:-8501}/_stcore/health || exit 1
+    CMD curl -f http://localhost:8080/_stcore/health || exit 1
 
-# Use the entrypoint script for proper debugging and PORT handling
-ENTRYPOINT ["./entrypoint.sh"]
+# Use CMD instead of ENTRYPOINT to allow Procfile override
+CMD ["streamlit", "run", "main.py"]

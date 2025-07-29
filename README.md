@@ -1,213 +1,162 @@
 # Intelligent Resume Parser
 
-An AI-powered resume parser that extracts structured data from resumes in multiple formats using the unstructured library and OpenAI GPT-4o with function calling.
+An AI-powered resume parsing application that extracts structured information from resumes in multiple formats (PDF, DOCX, DOC, TXT, HTML) using OpenAI's GPT-4o model.
 
 ## 🚀 Features
 
 - **Multi-format Support**: PDF, DOCX, DOC, TXT, HTML resume parsing
-- **AI-Powered Extraction**: GPT-4o with function calling for intelligent data extraction
-- **Skill Inference**: Automatically infers related skills (e.g., Python from Streamlit usage)
-- **Comprehensive Analysis**: Extracts contact info, skills, experience, education, certifications
-- **Real-time UI**: Streamlit-based interface with progress indicators
-- **Structured Output**: Canonical JSON schema format for consistent results
+- **AI-Powered Extraction**: Uses OpenAI GPT-4o for intelligent information extraction
+- **Structured Output**: Returns clean, structured JSON data
+- **Skill Inference**: Automatically infers implicit skills from experience descriptions
+- **Error Handling**: Comprehensive validation and error reporting
+- **Token Tracking**: Monitors OpenAI API usage and costs
+- **Web Interface**: User-friendly Streamlit web application
 
-## 🏗️ Architecture
+## 🛠️ Technology Stack
 
-```
-resume_parser/
-├── src/
-│   ├── models/           # Pydantic schema models
-│   │   ├── schema.py     # Canonical JSON schema
-│   │   └── resume_elements.py  # Document element models
-│   ├── parsers/          # Document processing
-│   │   ├── document_parser.py  # Unstructured integration
-│   │   └── content_processor.py  # Section grouping
-│   ├── agents/           # AI-powered extraction
-│   │   └── gpt_extractor.py  # GPT-4o function calling
-│   └── ui/               # Streamlit frontend
-│       ├── streamlit_app.py  # Main UI
-│       └── file_validator.py  # File validation
-├── config/
-│   └── settings.py       # Configuration management
-├── tests/
-│   └── sample_resumes/   # Test files
-├── requirements.txt      # Dependencies
-└── main.py              # Entry point
-```
+- **Backend**: Python 3.11
+- **Web Framework**: Streamlit
+- **AI/ML**: OpenAI GPT-4o
+- **Document Processing**: Unstructured library
+- **Data Validation**: Pydantic
+- **Containerization**: Docker
+- **Deployment**: Railway.app
 
-## 🛠️ Installation
+## 📋 Prerequisites
 
-1. **Clone the repository**:
+- Python 3.11+
+- OpenAI API Key
+- Docker (for containerized deployment)
+
+## 🚀 Quick Start
+
+### Local Development
+
+1. **Clone the repository**
    ```bash
    git clone <repository-url>
    cd resume_parser
    ```
 
-2. **Install dependencies**:
+2. **Create virtual environment**
+   ```bash
+   python -m venv venv
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   ```
+
+3. **Install dependencies**
    ```bash
    pip install -r requirements.txt
    ```
 
-3. **Set up environment variables**:
+4. **Set environment variables**
    ```bash
-   cp .env.example .env
-   # Edit .env and add your OpenAI API key
+   export OPENAI_API_KEY="your-openai-api-key"
    ```
 
-4. **Required Environment Variables**:
-   ```env
-   OPENAI_API_KEY=your_openai_api_key_here
-   DEBUG=false
-   ```
-
-## 🚀 Usage
-
-1. **Start the application**:
+5. **Run the application**
    ```bash
    streamlit run main.py
    ```
 
-2. **Open your browser** to `http://localhost:8501`
+6. **Open your browser** to the URL provided by Streamlit
 
-3. **Upload a resume** (PDF, DOCX, DOC, TXT, or HTML)
+### Docker Deployment
 
-4. **Parse Document**: Extract raw elements and group into sections
+1. **Build the Docker image**
+   ```bash
+   docker build -t resume-parser .
+   ```
 
-5. **Extract with GPT-4o**: Generate structured JSON output
+2. **Run the container**
+   ```bash
+   docker run -p 8080:8080 -e OPENAI_API_KEY="your-openai-api-key" resume-parser
+   ```
 
-## 📊 Processing Pipeline
+3. **Access the application** at the URL provided by your deployment platform
 
-### Step 1: Document Parsing
-- Uses `unstructured` library to extract elements
-- Identifies titles, text, lists, tables, contact info
-- Groups elements by document structure
+### Railway Deployment
 
-### Step 2: Content Processing
-- Classifies elements into resume sections
-- Uses pattern matching for section detection
-- Calculates confidence scores for classifications
+1. **Deploy to Railway**
+   ```bash
+   railway up
+   ```
 
-### Step 3: GPT-4o Extraction
-- Sends grouped content to GPT-4o with function calling
-- Extracts structured data matching canonical schema
-- Infers implicit skills and relationships
-- Calculates experience metrics
+2. **Set environment variables in Railway dashboard**
+   - `OPENAI_API_KEY`: Your OpenAI API key
 
-## 🎯 Output Schema
+3. **Access the application** at the Railway-provided URL
 
-The system outputs structured JSON matching this schema:
+## 📁 Project Structure
 
-```json
-{
-  "contactInfo": {
-    "fullName": "string",
-    "firstName": "string",
-    "lastName": "string", 
-    "email": "string",
-    "phone": "string",
-    "location": {
-      "city": "string",
-      "state": "string",
-      "country": "string"
-    }
-  },
-  "summary": "string",
-  "skills": [
-    {
-      "name": "string",
-      "category": "string",
-      "experienceInMonths": "integer",
-      "lastUsed": "string (YYYY-MM-DD)"
-    }
-  ],
-  "education": [...],
-  "workExperience": [...],
-  "certifications": [...],
-  "experienceSummary": {
-    "totalMonthsExperience": "integer",
-    "monthsOfManagementExperience": "integer", 
-    "currentManagementLevel": "string",
-    "description": "string"
-  },
-  "parserMetadata": {...}
-}
 ```
-
-## 🧠 AI-Powered Features
-
-### Skill Inference
-The system automatically infers related skills:
-- **Streamlit** → Python, Web Development, Data Visualization
-- **React** → JavaScript, HTML, CSS, Frontend Development
-- **AWS** → Cloud Computing, DevOps, Infrastructure
-- **Docker** → Containerization, DevOps, Linux
-
-### Experience Analysis
-- Calculates total months of experience from job history
-- Identifies management experience from roles and descriptions
-- Determines current management level
-- Provides comprehensive experience summary
+resume_parser/
+├── config/
+│   ├── __init__.py
+│   └── settings.py          # Application configuration
+├── src/
+│   ├── agents/
+│   │   └── gpt_extractor.py # OpenAI GPT-4o integration
+│   ├── models/
+│   │   ├── resume_elements.py # Pydantic models
+│   │   ├── schema.py         # Data schemas
+│   │   └── token_usage.py    # Token tracking
+│   ├── parsers/
+│   │   ├── content_processor.py # Content processing
+│   │   └── document_parser.py   # Document parsing
+│   └── ui/
+│       ├── file_validator.py    # File validation
+│       └── streamlit_app.py     # Streamlit UI
+├── tests/
+│   └── sample_resumes/      # Test files
+├── main.py                  # Application entry point
+├── requirements.txt         # Python dependencies
+├── Dockerfile              # Docker configuration
+├── Procfile               # Railway deployment config
+└── railway.json           # Railway configuration
+```
 
 ## 🔧 Configuration
 
-### Settings (`config/settings.py`)
-- File upload limits (default: 10MB)
-- Supported file formats
-- OpenAI model configuration
-- Processing timeouts
-
 ### Environment Variables
-- `OPENAI_API_KEY`: Required for GPT-4o integration
-- `DEBUG`: Enable debug mode for detailed error messages
-- `OPENAI_MODEL`: Model to use (default: gpt-4o)
-- `OPENAI_MAX_TOKENS`: Maximum tokens for responses
-- `OPENAI_TEMPERATURE`: Model temperature for consistency
+
+- `OPENAI_API_KEY`: Your OpenAI API key (required)
+- `OPENAI_MODEL`: OpenAI model to use (default: gpt-4o)
+- `MAX_FILE_SIZE_MB`: Maximum file size in MB (default: 10)
+- `ENABLE_DEBUG_MODE`: Enable debug mode (default: false)
+
+### Supported File Formats
+
+- **PDF**: `.pdf`
+- **Microsoft Word**: `.docx`, `.doc`
+- **Text**: `.txt`
+- **HTML**: `.html`
 
 ## 🧪 Testing
 
-Test with the provided sample resume:
+Run tests with sample resumes:
+
 ```bash
-# Sample file located at:
-tests/sample_resumes/sample_resume.txt
+python -m pytest tests/
 ```
 
-## 📝 Development
+## 📊 Features
 
-### Code Standards
-- **Type hints**: Consistent throughout codebase
-- **PEP8**: Python style guide compliance
-- **Modular design**: Separate concerns across modules
-- **Error handling**: Comprehensive exception management
+### Resume Parsing
+- Extracts personal information, education, work experience, skills
+- Handles multiple document formats
+- Processes both explicit and implicit information
 
-### Adding New File Formats
-1. Update `SUPPORTED_EXTENSIONS` in `config/settings.py`
-2. Add format validation in `file_validator.py`
-3. Test with unstructured library compatibility
+### AI-Powered Extraction
+- Uses OpenAI GPT-4o for intelligent parsing
+- Infers skills from job descriptions
+- Handles various resume formats and layouts
 
-### Extending Skill Inference
-Add new mappings to `_build_skill_inference_database()` in `gpt_extractor.py`
-
-## 🚨 Troubleshooting
-
-### Common Issues
-
-1. **OpenAI API Key Error**:
-   - Ensure `OPENAI_API_KEY` is set in `.env`
-   - Verify API key has sufficient credits
-
-2. **File Upload Fails**:
-   - Check file size (max 10MB)
-   - Verify file format is supported
-   - Ensure file is not corrupted
-
-3. **Parsing Errors**:
-   - Enable debug mode: `DEBUG=true`
-   - Check file content is readable
-   - Try with different file format
-
-## 📄 License
-
-This project is licensed under the MIT License.
+### Web Interface
+- File upload with drag-and-drop
+- Real-time parsing results
+- Error handling and validation
+- Token usage tracking
 
 ## 🤝 Contributing
 
@@ -217,9 +166,19 @@ This project is licensed under the MIT License.
 4. Add tests if applicable
 5. Submit a pull request
 
-## 📞 Support
+## 📄 License
+
+This project is licensed under the MIT License.
+
+## 🆘 Support
 
 For issues and questions:
-- Check the troubleshooting section
-- Review error messages in debug mode
-- Ensure all dependencies are installed correctly
+- Check the documentation
+- Review existing issues
+- Create a new issue with detailed information
+
+## 🔗 Links
+
+- [OpenAI API Documentation](https://platform.openai.com/docs)
+- [Streamlit Documentation](https://docs.streamlit.io)
+- [Railway Documentation](https://docs.railway.app)

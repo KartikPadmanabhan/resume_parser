@@ -1,1 +1,1 @@
-web: bash entrypoint.sh
+web: unset STREAMLIT_SERVER_PORT && streamlit run main.py --server.port=$PORT --server.address=0.0.0.0 
