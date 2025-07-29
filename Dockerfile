@@ -54,6 +54,9 @@ COPY . .
 # Change ownership to appuser
 RUN chown -R appuser:appuser /app
 
+# Make startup script executable
+RUN chmod +x start.sh
+
 # Switch to appuser
 USER appuser
 
@@ -64,5 +67,5 @@ EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:8080/_stcore/health || exit 1
 
-# Use exec in CMD as recommended by Railway
-CMD exec streamlit run main.py
+# Use startup script to handle environment variables
+CMD ["./start.sh"]
