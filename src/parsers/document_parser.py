@@ -58,13 +58,24 @@ class DocumentParser:
             
             try:
                 # Use unstructured to partition the document
-                elements = partition(
-                    filename=temp_file_path,
-                    strategy="auto",
-                    include_page_breaks=True,
-                    infer_table_structure=True,
-                    chunking_strategy=None  # We'll handle chunking ourselves
-                )
+                # Use hi_res strategy for PDFs to enable OCR and better text extraction
+                if file_extension.lower() == '.pdf':
+                    from unstructured.partition.pdf import partition_pdf
+                    elements = partition_pdf(
+                        filename=temp_file_path,
+                        strategy="hi_res",  # High resolution for better OCR
+                        infer_table_structure=True,
+                        extract_images_in_pdf=False,
+                        languages=['eng']
+                    )
+                else:
+                    elements = partition(
+                        filename=temp_file_path,
+                        strategy="auto",
+                        include_page_breaks=True,
+                        infer_table_structure=True,
+                        chunking_strategy=None  # We'll handle chunking ourselves
+                    )
                 
                 # Convert unstructured elements to our DocumentElement format
                 document_elements = self._convert_elements(elements)
@@ -121,16 +132,21 @@ class DocumentParser:
                 metadata = {}
                 if hasattr(element, 'metadata') and element.metadata:
                     metadata = element.metadata.to_dict() if hasattr(element.metadata, 'to_dict') else {}
+                    # Remove coordinates from metadata to avoid Pydantic validation errors
+                    metadata.pop('coordinates', None)
                 
                 # Extract page number if available
                 page_number = None
                 if 'page_number' in metadata:
                     page_number = metadata.get('page_number')
                 
-                # Extract coordinates if available
+                # Extract coordinates if available - handle unstructured coordinate objects
                 coordinates = None
                 if 'coordinates' in metadata:
-                    coordinates = metadata.get('coordinates')
+                    coord_obj = metadata.get('coordinates')
+                    # Skip coordinates to avoid Pydantic validation errors with complex objects
+                    # The unstructured library returns complex coordinate objects that don't match our schema
+                    coordinates = None
                 
                 # Create DocumentElement
                 doc_element = DocumentElement(
