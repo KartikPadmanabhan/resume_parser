@@ -1,0 +1,21 @@
+[phases.setup]
+nixPkgs = [
+  "python311",
+  "poppler_utils",
+  "tesseract5",
+  "file",
+  "pkg-config"
+]
+
+[phases.install]
+cmds = [
+  "pip install -r requirements.txt"
+]
+
+[phases.build]
+cmds = [
+  "echo 'Build completed successfully'"
+]
+
+[start]
+cmd = "streamlit run main.py --server.port $PORT --server.address 0.0.0.0 --server.headless true --server.enableCORS false --server.enableXsrfProtection false"
