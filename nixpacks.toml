@@ -13,4 +13,4 @@ nixPkgs = [
 ]
 
 [start]
-cmd = "python run_streamlit.py"
+cmd = "bash entrypoint.sh"

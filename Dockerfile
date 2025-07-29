@@ -57,8 +57,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy the entire application
 COPY . .
 
-# Make Python wrapper script executable
-RUN chmod +x run_streamlit.py
+# Make entrypoint script executable
+RUN chmod +x entrypoint.sh
 
 # Create a non-root user for security
 RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
@@ -70,5 +70,6 @@ EXPOSE 8501
 # Health check (Railway handles health checks automatically)
 # HEALTHCHECK disabled for Railway compatibility with dynamic ports
 
-# Command to run the application (Railway will use Procfile)
-CMD ["python", "run_streamlit.py"]
+# Use shell script entrypoint for proper PORT environment variable expansion
+ENTRYPOINT ["/bin/bash"]
+CMD ["entrypoint.sh"]

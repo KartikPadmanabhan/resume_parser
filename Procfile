@@ -1,1 +1,1 @@
-web: python run_streamlit.py
+web: bash entrypoint.sh
