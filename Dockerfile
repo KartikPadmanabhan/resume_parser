@@ -62,7 +62,7 @@ EXPOSE $PORT
 
 # Health check (Railway will handle port configuration)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8080/_stcore/health || exit 1
+    CMD curl -f http://localhost:$PORT/_stcore/health || exit 1
 
 # Use CMD instead of ENTRYPOINT to allow Procfile override
 CMD ["streamlit", "run", "main.py"]
