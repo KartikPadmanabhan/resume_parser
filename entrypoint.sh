@@ -19,6 +19,11 @@ unset STREAMLIT_SERVER_ENABLE_XSRF_PROTECTION
 
 echo "Cleared Streamlit environment variables"
 
+# Set the proper Streamlit port environment variable with the expanded value
+export STREAMLIT_SERVER_PORT=$PORT
+
+echo "Set STREAMLIT_SERVER_PORT to: $STREAMLIT_SERVER_PORT"
+
 # Launch Streamlit with proper environment variable expansion
 exec streamlit run main.py \
     --server.port=$PORT \
