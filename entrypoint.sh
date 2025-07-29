@@ -10,6 +10,15 @@ PORT=${PORT:-8501}
 
 echo "Using port: $PORT"
 
+# Clear any problematic Streamlit environment variables that Railway might inject
+unset STREAMLIT_SERVER_PORT
+unset STREAMLIT_SERVER_ADDRESS
+unset STREAMLIT_SERVER_HEADLESS
+unset STREAMLIT_SERVER_ENABLE_CORS
+unset STREAMLIT_SERVER_ENABLE_XSRF_PROTECTION
+
+echo "Cleared Streamlit environment variables"
+
 # Launch Streamlit with proper environment variable expansion
 exec streamlit run main.py \
     --server.port=$PORT \
