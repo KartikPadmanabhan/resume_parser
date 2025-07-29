@@ -57,12 +57,12 @@ RUN chown -R appuser:appuser /app
 # Switch to appuser
 USER appuser
 
-# Expose port (Railway will provide $PORT at runtime)
-EXPOSE $PORT
+# Expose port 8080 for Streamlit server
+EXPOSE 8080
 
-# Health check (Railway will handle port configuration)
+# Health check using port 8080
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:$PORT/_stcore/health || exit 1
+    CMD curl -f http://localhost:8080/_stcore/health || exit 1
 
-# Use CMD instead of ENTRYPOINT to allow Procfile override
-CMD ["streamlit", "run", "main.py"]
+# Use exec in CMD as recommended by Railway
+CMD exec streamlit run main.py
