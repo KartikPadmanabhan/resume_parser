@@ -60,6 +60,9 @@ USER appuser
 # Expose port (Railway will provide $PORT at runtime)
 EXPOSE 8080
 
+# Set STREAMLIT_SERVER_PORT explicitly to override Railway's problematic setting
+ENV STREAMLIT_SERVER_PORT=${PORT:-8501}
+
 # Health check (use consistent port 8080 for healthcheck)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:8080/_stcore/health || exit 1
