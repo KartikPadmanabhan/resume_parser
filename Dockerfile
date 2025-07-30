@@ -63,9 +63,15 @@ USER appuser
 # Expose port (Railway will provide $PORT at runtime)
 EXPOSE 8080
 
-# Health check (use consistent port 8080 for healthcheck)
+# Override Railway's problematic STREAMLIT_SERVER_PORT setting
+ENV STREAMLIT_SERVER_PORT=${PORT:-8080}
+
+# Debug: Print health check info during build
+RUN echo "🔍 HEALTHCHECK DEBUG: Will use hardcoded 8080 for health check"
+
+# Health check (use hardcoded 8080 like working test branch)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8080/_stcore/health || exit 1
+    CMD echo "🔍 HEALTHCHECK DEBUG: Checking health on port 8080" && curl -f http://localhost:8080/_stcore/health || exit 1
 
 # Use startup script with debug and PORT fix
 CMD ["./start.sh"]

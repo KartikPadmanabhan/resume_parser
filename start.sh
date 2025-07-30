@@ -20,6 +20,10 @@ echo "🔍 ENVIRONMENT VARIABLES DEBUG (AFTER FIX):"
 echo "PORT: '$PORT'"
 echo "STREAMLIT_SERVER_PORT: '$STREAMLIT_SERVER_PORT'"
 
+echo "🔍 APP LISTENING DEBUG:"
+echo "App will listen on port: $STREAMLIT_SERVER_PORT"
+echo "Health check will check port: $PORT"
+
 echo "🔍 STARTING STREAMLIT:"
 echo "Command: streamlit run main.py"
 exec streamlit run main.py 
