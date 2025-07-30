@@ -31,6 +31,9 @@ RUN echo "🔍 BUILD DEBUG: Container environment setup complete"
 # Expose port
 EXPOSE 8080
 
+# Override Railway's problematic STREAMLIT_SERVER_PORT setting
+ENV STREAMLIT_SERVER_PORT=${PORT:-8501}
+
 # Debug: Print startup info
 RUN echo "🔍 STARTUP DEBUG: Dockerfile will use start.sh script"
 
