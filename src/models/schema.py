@@ -61,20 +61,10 @@ class Education(BaseModel):
         if v is None or v == '' or v.strip() == '':
             return None
         
-        # Try YYYY-MM format first
         try:
             datetime.strptime(v, '%Y-%m')
-            return v
         except ValueError:
-            pass
-        
-        # Try YYYY-MM-DD format and convert to YYYY-MM
-        try:
-            date_obj = datetime.strptime(v, '%Y-%m-%d')
-            return date_obj.strftime('%Y-%m')
-        except ValueError:
-            raise ValueError('graduationDate must be in YYYY-MM or YYYY-MM-DD format, or empty for unknown graduation date')
-        
+            raise ValueError('graduationDate must be in YYYY-MM format or empty for unknown graduation date')
         return v
 
 
@@ -89,20 +79,10 @@ class WorkExperience(BaseModel):
     
     @validator('startDate')
     def validate_start_date(cls, v):
-        # Try YYYY-MM format first
         try:
             datetime.strptime(v, '%Y-%m')
-            return v
         except ValueError:
-            pass
-        
-        # Try YYYY-MM-DD format and convert to YYYY-MM
-        try:
-            date_obj = datetime.strptime(v, '%Y-%m-%d')
-            return date_obj.strftime('%Y-%m')
-        except ValueError:
-            raise ValueError('startDate must be in YYYY-MM or YYYY-MM-DD format')
-        
+            raise ValueError('startDate must be in YYYY-MM format')
         return v
     
     @validator('endDate')
@@ -112,19 +92,11 @@ class WorkExperience(BaseModel):
         if v.lower() in current_variations:
             return 'current'  # Normalize to 'current'
         
-        # Validate date format - try YYYY-MM first
+        # Validate date format
         try:
             datetime.strptime(v, '%Y-%m')
-            return v
         except ValueError:
-            pass
-        
-        # Try YYYY-MM-DD format and convert to YYYY-MM
-        try:
-            date_obj = datetime.strptime(v, '%Y-%m-%d')
-            return date_obj.strftime('%Y-%m')
-        except ValueError:
-            raise ValueError('endDate must be in YYYY-MM or YYYY-MM-DD format, or indicate current employment ("current", "present", etc.)')
+            raise ValueError('endDate must be in YYYY-MM format or indicate current employment ("current", "present", etc.)')
         return v
 
 
@@ -140,19 +112,10 @@ class Certification(BaseModel):
         if v is None or v == '' or v.strip() == '':
             return None
         
-        # Try YYYY-MM format first
         try:
             datetime.strptime(v, '%Y-%m')
-            return v
         except ValueError:
-            pass
-        
-        # Try YYYY-MM-DD format and convert to YYYY-MM
-        try:
-            date_obj = datetime.strptime(v, '%Y-%m-%d')
-            return date_obj.strftime('%Y-%m')
-        except ValueError:
-            raise ValueError('issueDate must be in YYYY-MM or YYYY-MM-DD format, or empty for unknown issue date')
+            raise ValueError('issueDate must be in YYYY-MM format or empty for unknown issue date')
         return v
 
 
