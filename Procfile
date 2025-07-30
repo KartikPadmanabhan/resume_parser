@@ -1,1 +1,1 @@
-web: echo "🔍 PROCFILE DEBUG: Starting Streamlit app" && streamlit run main.py 
+web: streamlit run main.py 

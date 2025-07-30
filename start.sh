@@ -1,9 +1,8 @@
 #!/bin/bash
 
-echo "🔍 STARTUP SCRIPT DEBUG: Starting application..."
+echo "🔍 STARTUP SCRIPT DEBUG: Starting Resume Parser application..."
 echo "🔍 Current working directory: $(pwd)"
 echo "🔍 Current user: $(whoami)"
-echo "🔍 Python version: $(python --version)"
 
 echo "🔍 ENVIRONMENT VARIABLES DEBUG (BEFORE FIX):"
 echo "PORT: '$PORT'"
@@ -20,14 +19,6 @@ export STREAMLIT_SERVER_PORT=$PORT
 echo "🔍 ENVIRONMENT VARIABLES DEBUG (AFTER FIX):"
 echo "PORT: '$PORT'"
 echo "STREAMLIT_SERVER_PORT: '$STREAMLIT_SERVER_PORT'"
-
-echo "🔍 PROCESS DEBUG:"
-echo "PID: $$"
-echo "Parent PID: $PPID"
-
-echo "🔍 FILESYSTEM DEBUG:"
-echo "Contents of current directory:"
-ls -la
 
 echo "🔍 STARTING STREAMLIT:"
 echo "Command: streamlit run main.py"

@@ -1,47 +1,18 @@
 """
-Minimalistic test app with PORT forwarding debug messages.
+Main entry point for the Resume Parser application.
+Run this file to start the Streamlit web interface.
 """
 
-import streamlit as st
-import os
 import sys
+import os
+from pathlib import Path
 
-def debug_port_info():
-    """Print debug information about port configuration."""
-    st.write("🔍 **DEBUG: PORT CONFIGURATION**")
-    st.write(f"PORT environment variable: '{os.environ.get('PORT', 'NOT SET')}'")
-    st.write(f"STREAMLIT_SERVER_PORT: '{os.environ.get('STREAMLIT_SERVER_PORT', 'NOT SET')}'")
-    st.write(f"RAILWAY_ENVIRONMENT: '{os.environ.get('RAILWAY_ENVIRONMENT', 'NOT SET')}'")
-    st.write(f"RAILWAY_PUBLIC_DOMAIN: '{os.environ.get('RAILWAY_PUBLIC_DOMAIN', 'NOT SET')}'")
-    st.write(f"Python executable: {sys.executable}")
-    st.write(f"Working directory: {os.getcwd()}")
-    st.write("---")
+# Add the project root to Python path
+project_root = Path(__file__).parent
+sys.path.insert(0, str(project_root))
 
-def main():
-    """Main Streamlit app."""
-    st.set_page_config(
-        page_title="PORT Debug App",
-        page_icon="🔍",
-        layout="wide"
-    )
-    
-    st.title("🔍 PORT Debug Application")
-    st.write("This is a minimalistic app to debug PORT forwarding issues.")
-    
-    # Debug information
-    debug_port_info()
-    
-    # Simple test content
-    st.header("Test Content")
-    st.write("If you can see this, the app is running successfully!")
-    
-    # Environment variables display
-    st.header("All Environment Variables")
-    for key, value in os.environ.items():
-        if 'PORT' in key or 'RAILWAY' in key or 'STREAMLIT' in key:
-            st.code(f"{key}={value}")
-    
-    st.success("✅ App is running!")
+# Import and run the Streamlit app
+from src.ui.streamlit_app import main
 
 if __name__ == "__main__":
     main()
