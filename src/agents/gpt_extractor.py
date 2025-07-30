@@ -85,8 +85,20 @@ class GPTExtractor:
             output_tokens = self._count_output_tokens(function_call.arguments)
             self._track_token_usage(input_tokens, output_tokens, response)
             
-            # Parse the structured data
-            extracted_data = json.loads(function_call.arguments)
+            # Parse the structured data with error handling
+            try:
+                extracted_data = json.loads(function_call.arguments)
+            except json.JSONDecodeError as json_error:
+                print(f"JSON parsing error: {json_error}")
+                print(f"JSON string preview: {function_call.arguments[:500]}...")
+                
+                # Try to fix common JSON issues
+                fixed_json = self._fix_json_string(function_call.arguments)
+                try:
+                    extracted_data = json.loads(fixed_json)
+                except json.JSONDecodeError as second_error:
+                    print(f"Failed to fix JSON: {second_error}")
+                    raise ValueError(f"Unable to parse GPT response as valid JSON: {json_error}")
             
             # Create ResumeSchema object
             resume_schema = self._create_resume_schema(extracted_data, parsed_doc)
@@ -95,6 +107,9 @@ class GPTExtractor:
             
         except Exception as e:
             print(f"GPT extraction failed: {str(e)}")
+            if "Unterminated string" in str(e):
+                print("This appears to be a JSON parsing issue. The GPT response may contain unescaped quotes or newlines.")
+                print("Check the resume content for special characters that might be causing JSON formatting issues.")
             return None
     
     def _prepare_section_content(self, parsed_doc: ParsedDocument) -> Dict[str, str]:
@@ -203,6 +218,11 @@ EXPERIENCE CALCULATION:
         Returns:
             Formatted user prompt
         """
+        # Sanitize section content to prevent JSON issues
+        sanitized_content = {}
+        for section_name, content in section_content.items():
+            sanitized_content[section_name] = self._sanitize_text_for_gpt(content)
+        
         prompt_parts = [
             f"Please extract structured resume data from the following resume sections:",
             f"",
@@ -224,7 +244,7 @@ EXPERIENCE CALCULATION:
             f"RESUME SECTIONS:"
         ]
         
-        for section_name, content in section_content.items():
+        for section_name, content in sanitized_content.items():
             prompt_parts.extend([
                 f"",
                 f"=== {section_name.upper()} ===",
@@ -824,3 +844,105 @@ EXPERIENCE CALCULATION:
         Clear all token usage history.
         """
         self.token_tracker.clear_history()
+    
+    def _fix_json_string(self, json_string: str) -> str:
+        """
+        Fix common JSON parsing issues in GPT responses.
+        
+        Args:
+            json_string: Raw JSON string from GPT
+            
+        Returns:
+            Fixed JSON string
+        """
+        if not json_string:
+            return "{}"
+        
+        # Remove any leading/trailing whitespace
+        json_string = json_string.strip()
+        
+        # Fix common issues:
+        # 1. Unescaped quotes in string values
+        # 2. Newlines in string values
+        # 3. Trailing commas
+        # 4. Missing quotes around property names
+        
+        # First, try to find the JSON object boundaries
+        start_idx = json_string.find('{')
+        end_idx = json_string.rfind('}')
+        
+        if start_idx == -1 or end_idx == -1:
+            return "{}"
+        
+        # Extract the JSON object
+        json_object = json_string[start_idx:end_idx + 1]
+        
+        # Fix unescaped quotes in string values
+        # This is a simplified approach - we'll escape quotes that are inside string values
+        import re
+        
+        # Pattern to match string values and escape quotes within them
+        def escape_quotes_in_strings(match):
+            content = match.group(1)
+            # Escape any unescaped quotes
+            content = content.replace('"', '\\"')
+            return f'"{content}"'
+        
+        # This regex matches string values in JSON
+        # It looks for quoted strings and handles nested quotes
+        pattern = r'"([^"\\]*(?:\\.[^"\\]*)*)"'
+        json_object = re.sub(pattern, escape_quotes_in_strings, json_object)
+        
+        # Remove trailing commas before closing braces/brackets
+        json_object = re.sub(r',(\s*[}\]])', r'\1', json_object)
+        
+        # Fix missing quotes around property names
+        # This is a more complex fix - we'll look for unquoted property names
+        def fix_unquoted_properties(match):
+            property_name = match.group(1)
+            # Only fix if it looks like a valid property name
+            if re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', property_name):
+                return f'"{property_name}":'
+            return match.group(0)
+        
+        # Pattern to find unquoted property names
+        property_pattern = r'([a-zA-Z_][a-zA-Z0-9_]*)\s*:'
+        json_object = re.sub(property_pattern, fix_unquoted_properties, json_object)
+        
+        return json_object
+    
+    def _sanitize_text_for_gpt(self, text: str) -> str:
+        """
+        Sanitize text content to prevent JSON parsing issues in GPT responses.
+        
+        Args:
+            text: Raw text content
+            
+        Returns:
+            Sanitized text content
+        """
+        if not text:
+            return ""
+        
+        # Replace problematic characters that could break JSON
+        sanitized = text
+        
+        # Replace unescaped quotes with escaped quotes
+        sanitized = sanitized.replace('"', '\\"')
+        
+        # Replace newlines with spaces to prevent JSON structure issues
+        sanitized = sanitized.replace('\n', ' ')
+        sanitized = sanitized.replace('\r', ' ')
+        
+        # Replace tabs with spaces
+        sanitized = sanitized.replace('\t', ' ')
+        
+        # Remove multiple consecutive spaces
+        import re
+        sanitized = re.sub(r'\s+', ' ', sanitized)
+        
+        # Truncate if too long (to prevent token limit issues)
+        if len(sanitized) > 8000:
+            sanitized = sanitized[:8000] + "... [truncated]"
+        
+        return sanitized.strip()
