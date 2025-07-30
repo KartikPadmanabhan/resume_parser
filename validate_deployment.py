@@ -26,7 +26,9 @@ def check_python_dependencies() -> List[Tuple[str, bool]]:
         'unstructured': 'unstructured',
         'python-magic': 'magic',
         'pytesseract': 'pytesseract',
-        'python-dotenv': 'dotenv'
+        'python-dotenv': 'dotenv',
+        'pdfplumber': 'pdfplumber',  # Fallback for PDF parsing
+        'python-docx': 'docx'  # Fallback for DOCX parsing
     }
     
     results = []
