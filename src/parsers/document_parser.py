@@ -62,27 +62,6 @@ class DocumentParser:
                 os.environ.setdefault('LIBGL_ALWAYS_SOFTWARE', '1')
                 os.environ.setdefault('MESA_GL_VERSION_OVERRIDE', '3.3')
                 
-                # Use unstructured to partition the document
-<<<<<<< HEAD
-                # Use hi_res strategy for PDFs to enable OCR and better text extraction
-                if file_extension.lower() == '.pdf':
-                    from unstructured.partition.pdf import partition_pdf
-                    elements = partition_pdf(
-                        filename=temp_file_path,
-                        strategy="hi_res",  # High resolution for better OCR
-                        infer_table_structure=True,
-                        extract_images_in_pdf=False,
-                        languages=['eng']
-                    )
-                else:
-                    elements = partition(
-                        filename=temp_file_path,
-                        strategy="auto",
-                        include_page_breaks=True,
-                        infer_table_structure=True,
-                        chunking_strategy=None  # We'll handle chunking ourselves
-                    )
-=======
                 elements = self._partition_document(temp_file_path)
                 
                 # Check if the parsing extracted meaningful content
@@ -100,7 +79,6 @@ class DocumentParser:
                 if not meaningful_content:
                     # If unstructured didn't extract meaningful content, use fallback
                     return self._parse_with_fallback(file_content, filename, file_extension, file_type)
->>>>>>> test
                 
                 # Convert unstructured elements to our DocumentElement format
                 document_elements = self._convert_elements(elements)
@@ -179,16 +157,10 @@ class DocumentParser:
                 # Extract metadata
                 metadata = {}
                 if hasattr(element, 'metadata') and element.metadata:
-<<<<<<< HEAD
-                    metadata = element.metadata.to_dict() if hasattr(element.metadata, 'to_dict') else {}
-                    # Remove coordinates from metadata to avoid Pydantic validation errors
-                    metadata.pop('coordinates', None)
-=======
                     try:
                         metadata = element.metadata.to_dict() if hasattr(element.metadata, 'to_dict') else {}
                     except:
                         metadata = {}
->>>>>>> test
                 
                 # Extract page number if available
                 page_number = None
@@ -198,12 +170,6 @@ class DocumentParser:
                 # Extract coordinates if available - handle unstructured coordinate objects
                 coordinates = None
                 if 'coordinates' in metadata:
-<<<<<<< HEAD
-                    coord_obj = metadata.get('coordinates')
-                    # Skip coordinates to avoid Pydantic validation errors with complex objects
-                    # The unstructured library returns complex coordinate objects that don't match our schema
-                    coordinates = None
-=======
                     try:
                         coord_data = metadata.get('coordinates')
                         # Only include coordinates if they're simple numeric values
@@ -221,7 +187,6 @@ class DocumentParser:
                 # Skip empty elements
                 if not text_content.strip():
                     continue
->>>>>>> test
                 
                 # Create DocumentElement
                 doc_element = DocumentElement(
@@ -287,9 +252,6 @@ class DocumentParser:
         
         return type_mapping.get(extension, 'Unknown Document Type')
     
-<<<<<<< HEAD
-
-=======
     def get_document_stats(self, parsed_doc: ParsedDocument) -> Dict[str, Any]:
         """
         Get statistics about the parsed document.
@@ -532,4 +494,3 @@ class DocumentParser:
             
         except Exception as e:
             raise Exception(f"Fallback parsing failed: {str(e)}")
->>>>>>> test
