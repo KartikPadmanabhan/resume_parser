@@ -1,0 +1,37 @@
+[phases.setup]
+nixPkgs = [
+  "python311",
+  "poppler_utils",
+  "tesseract5",
+  "file",
+  "pkg-config",
+  "mesa",
+  "libGL",
+  "libglvnd",
+  "xorg.libX11",
+  "xorg.libXext",
+  "xorg.libXrender",
+  "xorg.libXrandr",
+  "xorg.libXcursor",
+  "xorg.libXfixes",
+  "xorg.libXcomposite",
+  "xorg.libXdamage",
+  "xorg.libXinerama",
+  "xorg.libXScrnSaver",
+  "xorg.libXtst",
+  "xorg.libXi",
+  "xorg.libXxf86vm",
+  "xorg.libXv",
+  "xorg.libXvMC",
+  "xorg.libXxf86dga",
+  "xorg.libXxf86misc"
+]
+
+[variables]
+MESA_GL_VERSION_OVERRIDE = "3.3"
+MESA_GLSL_VERSION_OVERRIDE = "330"
+LIBGL_ALWAYS_SOFTWARE = "1"
+DISPLAY = ":99"
+
+[start]
+cmd = "streamlit run main.py --server.port $PORT --server.address 0.0.0.0 --server.headless true --server.enableCORS false --server.enableXsrfProtection false"
