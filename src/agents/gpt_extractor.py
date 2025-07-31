@@ -1,5 +1,5 @@
 """
-GPT-4o powered resume data extractor using function calling.
+GPT powered resume data extractor using function calling.
 Transforms parsed document sections into structured resume data matching the canonical JSON schema.
 """
 
@@ -20,7 +20,7 @@ from src.models.resume_elements import ParsedDocument, ResumeSection
 from src.models.token_usage import TokenUsage, TokenTracker
 
 class GPTExtractor:
-    """GPT-4o powered extractor for structured resume data."""
+    """GPT powered extractor for structured resume data."""
     
     def __init__(self):
         """Initialize the GPT extractor with OpenAI client and token tracking."""
@@ -36,12 +36,12 @@ class GPTExtractor:
         try:
             self.tokenizer = tiktoken.encoding_for_model(self.model)
         except KeyError:
-            # Fallback to cl100k_base encoding for GPT-4o
+            # Fallback to cl100k_base encoding for GPT
             self.tokenizer = tiktoken.get_encoding("cl100k_base")
     
     def extract_structured_data(self, parsed_doc: ParsedDocument) -> Optional[ResumeSchema]:
         """
-        Extract structured resume data from parsed document using GPT-4o function calling.
+        Extract structured resume data from parsed document using GPT function calling.
         
         Args:
             parsed_doc: Parsed document with grouped sections
@@ -63,7 +63,7 @@ class GPTExtractor:
             # Count input tokens before API call
             input_tokens = self._count_input_tokens(system_prompt, user_prompt, function_schema)
             
-            # Call GPT-4o with function calling
+            # Call GPT with function calling
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=[
@@ -79,7 +79,7 @@ class GPTExtractor:
             # Extract function call result
             function_call = response.choices[0].message.function_call
             if not function_call or function_call.name != "extract_resume_data":
-                raise ValueError("GPT-4o did not return expected function call")
+                raise ValueError("GPT did not return expected function call")
             
             # Count output tokens and track usage
             output_tokens = self._count_output_tokens(function_call.arguments)
@@ -139,58 +139,53 @@ class GPTExtractor:
     
     def _preprocess_experience_section(self, content: str) -> str:
         """
-        Preprocess the experience section to make employment entries more clear.
+        Preprocess experience section to add clear employment position separators.
         
         Args:
             content: Raw experience section content
             
         Returns:
-            Preprocessed content with clearer employment entry separation
+            Preprocessed content with numbered employment position separators
         """
         import re
         
-        # Create a structured format that makes employment entries crystal clear
         lines = content.split('\n')
-        processed_lines = []
-        current_employment = []
         employment_entries = []
+        current_entry = []
         
-        for i, line in enumerate(lines):
-            # Look for company patterns
-            # Pattern: "Company Name, City, State" followed by optional date range
-            company_pattern = r'^([A-Z][A-Za-z\s&]+),\s+([A-Za-z\s]+)\s+([A-Z]{2})'
-            match = re.match(company_pattern, line.strip())
+        # Company pattern: "Company Name, City, State" with optional date
+        company_patterns = [
+            r'^([A-Z][A-Za-z\s&]+),\s+([A-Za-z\s]+)\s+([A-Z]{2})',  # Basic pattern
+            r'^([A-Z][A-Za-z\s&]+),\s+([A-Za-z\s]+)\s+([A-Z]{2})\s*.*',  # With date
+            r'^CVS.*'  # Special case for CVS Health
+        ]
+        
+        for line in lines:
+            # Check if line contains a company name
+            is_company_line = any(
+                re.match(pattern, line.strip()) 
+                for pattern in company_patterns
+            )
             
-            # Also check for company names that might be followed by dates on the same line
-            if not match:
-                # Try a more flexible pattern that includes optional date
-                company_pattern2 = r'^([A-Z][A-Za-z\s&]+),\s+([A-Za-z\s]+)\s+([A-Z]{2})\s*.*'
-                match = re.match(company_pattern2, line.strip())
-            
-            # If still no match, try a simpler pattern for CVS Health specifically
-            if not match and 'CVS' in line:
-                match = re.match(r'^CVS.*', line.strip())
-            
-            if match:
-                # If we have a previous employment entry, save it
-                if current_employment:
-                    employment_entries.append(current_employment)
-                
-                # Start a new employment entry
-                current_employment = [line]
+            if is_company_line and current_entry:
+                # Save previous entry and start new one
+                employment_entries.append(current_entry)
+                current_entry = [line]
             else:
-                if current_employment:
-                    current_employment.append(line)
+                current_entry.append(line)
         
-        # Add the last employment entry
-        if current_employment:
-            employment_entries.append(current_employment)
+        # Add the last entry
+        if current_entry:
+            employment_entries.append(current_entry)
         
-        # Format each employment entry clearly
-        for i, entry in enumerate(employment_entries):
-            processed_lines.append(f"\n{'='*60}")
-            processed_lines.append(f"EMPLOYMENT POSITION #{i+1}:")
-            processed_lines.append(f"{'='*60}")
+        # Format with clear separators
+        processed_lines = []
+        for i, entry in enumerate(employment_entries, 1):
+            processed_lines.extend([
+                f"\n{'='*60}",
+                f"EMPLOYMENT POSITION #{i}:",
+                f"{'='*60}"
+            ])
             processed_lines.extend(entry)
             processed_lines.append(f"{'='*60}")
         
@@ -198,84 +193,77 @@ class GPTExtractor:
     
     def _create_system_prompt(self) -> str:
         """Create the system prompt for GPT-4o."""
-        return """You are an expert resume parser and career analyst. Your task is to extract structured information from resume sections and infer implicit skills and qualifications.
+        return """You are an expert resume parser. Extract structured information and infer implicit skills.
 
 CRITICAL REQUIREMENTS:
-1. ALWAYS return data in the EXACT JSON schema format specified in the function definition
-2. Infer implicit skills from technologies, frameworks, and projects mentioned
-3. For each skill, determine the most appropriate category (Technical, Programming, Framework, etc.)
-4. Calculate realistic experience estimates based on job history and project complexity
-5. Extract ALL relevant information from every section provided
-6. 🔥 CRITICAL: Extract ALL employment positions - look for multiple companies, job titles, and date ranges
-   - Each company/employer should be a separate work experience entry
-   - Include ALL job positions found in the resume
-   - Pay attention to company names, job titles, and date ranges
-   - Do NOT skip any employment positions
-7. Ensure dates are in the correct format:
-   - Skills lastUsed: YYYY-MM-DD format
-   - Work/Education dates: YYYY-MM format
-   - For current/ongoing employment: use "current" (not "Present", "Now", etc.)
-   - For unknown/missing dates: leave empty string "" or null (will be converted to null)
-8. Be comprehensive - don't miss any skills, experiences, or qualifications
-9. TRACK INFERENCE CORRECTLY:
-   - isInferred=false: ONLY for skills explicitly written in the resume text (e.g., "Python", "JavaScript", "React")
-   - isInferred=true: For ALL skills you deduce/infer from context (e.g., "Data Analysis" from Python, "HTML" from React)
-   - EXAMPLE: If resume says "Python" → Python is explicit (isInferred=false), but "Data Analysis" is inferred (isInferred=true, inferredFrom="Python programming experience")
+1. Return data in EXACT JSON schema format specified
+2. Extract ALL employment positions - each company should be a separate entry
+3. Infer skills from technologies mentioned (mark as isInferred=true)
+4. Use correct date formats: YYYY-MM for work/education, YYYY-MM-DD for skills
+5. Use "current" for ongoing employment, empty string for unknown dates
 
-MANDATORY SKILL INFERENCE RULES (ALWAYS APPLY THESE):
+SKILL INFERENCE RULES (mark as isInferred=true):
+- Python -> Data Analysis, Problem Solving, OOP
+- JavaScript -> HTML, CSS, DOM Manipulation
+- React -> JavaScript, HTML, CSS, Component Architecture
+- Node.js -> JavaScript, Backend Development, API Development
+- SQL/Database -> Data Modeling, Query Optimization
+- Git -> Version Control, Collaboration
+- AWS/Cloud -> Cloud Architecture, Scalability
+- Docker -> Containerization, DevOps
+- Machine Learning -> Python, Statistics, Data Analysis
+- API development -> REST, JSON, HTTP
+- Frontend work -> User Experience, Responsive Design
+- Backend work -> Server Architecture, Database Integration
 
-🔥 TECHNICAL STACK INFERENCE (Mark as isInferred=true):
-- If Python mentioned → ALWAYS infer: Data Analysis, Problem Solving, Object-Oriented Programming
-- If JavaScript mentioned → ALWAYS infer: HTML, CSS, DOM Manipulation, Debugging
-- If React mentioned → ALWAYS infer: JavaScript, HTML, CSS, Component Architecture, State Management
-- If Node.js mentioned → ALWAYS infer: JavaScript, Backend Development, API Development
-- If SQL/Database mentioned → ALWAYS infer: Data Modeling, Query Optimization, Database Design
-- If Git mentioned → ALWAYS infer: Version Control, Collaboration, Code Management
-- If AWS/Cloud mentioned → ALWAYS infer: Cloud Architecture, Scalability, Infrastructure Management
-- If Docker mentioned → ALWAYS infer: Containerization, Linux, DevOps, System Administration
-- If Machine Learning mentioned → ALWAYS infer: Python, Statistics, Data Analysis, Mathematical Modeling
-- If API development → ALWAYS infer: REST, JSON, HTTP, Backend Architecture
-- If Frontend work → ALWAYS infer: User Experience, Cross-browser Compatibility, Responsive Design
-- If Backend work → ALWAYS infer: Server Architecture, Database Integration, Security
+EMPLOYMENT EXTRACTION RULES:
+- Look for multiple companies in experience section
+- Each company/employer should be a separate work experience entry
+- Extract ALL employment positions found, not just the most recent one
+- Pay attention to date ranges and job titles for each position
+- Common patterns: "Company Name, City, State" followed by date range
+- If you see multiple companies, create separate entries for each
+- CRITICAL: Extract ALL employment positions - if you see CVS Health, Sentara Healthcare, and CME Group, create 3 separate entries
+- DO NOT stop after extracting the first employment position - continue until you have extracted ALL positions
 
-🔥 ROLE-BASED INFERENCE (Mark as isInferred=true):
-- If "Senior" title → ALWAYS infer: Mentoring, Code Review, Technical Leadership
-- If "Lead" title → ALWAYS infer: Project Management, Team Coordination, Technical Decision Making
-- If "Manager" title → ALWAYS infer: People Management, Strategic Planning, Performance Management
-- If "Architect" title → ALWAYS infer: System Design, Technical Strategy, Solution Architecture
-- If "Engineer" title → ALWAYS infer: Problem Solving, Technical Documentation, Testing
-- If "Developer" title → ALWAYS infer: Debugging, Code Optimization, Software Development Lifecycle
-- If "Analyst" title → ALWAYS infer: Data Analysis, Requirements Gathering, Documentation
-- If "Consultant" title → ALWAYS infer: Client Communication, Problem Solving, Business Analysis
+ROLE-BASED INFERENCE (Mark as isInferred=true):
+- If "Senior" title -> ALWAYS infer: Mentoring, Code Review, Technical Leadership
+- If "Lead" title -> ALWAYS infer: Project Management, Team Coordination, Technical Decision Making
+- If "Manager" title -> ALWAYS infer: People Management, Strategic Planning, Performance Management
+- If "Architect" title -> ALWAYS infer: System Design, Technical Strategy, Solution Architecture
+- If "Engineer" title -> ALWAYS infer: Problem Solving, Technical Documentation, Testing
+- If "Developer" title -> ALWAYS infer: Debugging, Code Optimization, Software Development Lifecycle
+- If "Analyst" title -> ALWAYS infer: Data Analysis, Requirements Gathering, Documentation
+- If "Consultant" title -> ALWAYS infer: Client Communication, Problem Solving, Business Analysis
 
-🔥 INDUSTRY/DOMAIN INFERENCE (Mark as isInferred=true):
-- If Finance/Banking → ALWAYS infer: Regulatory Compliance, Risk Management, Financial Analysis
-- If Healthcare → ALWAYS infer: HIPAA Compliance, Data Privacy, Healthcare Regulations
-- If E-commerce → ALWAYS infer: Payment Processing, User Experience, Conversion Optimization
-- If Startup → ALWAYS infer: Agile Development, Rapid Prototyping, Resource Management
-- If Enterprise → ALWAYS infer: Enterprise Architecture, Scalability, Security Compliance
+INDUSTRY/DOMAIN INFERENCE (Mark as isInferred=true):
+- If Finance/Banking -> ALWAYS infer: Regulatory Compliance, Risk Management, Financial Analysis
+- If Healthcare -> ALWAYS infer: HIPAA Compliance, Data Privacy, Healthcare Regulations
+- If E-commerce -> ALWAYS infer: Payment Processing, User Experience, Conversion Optimization
+- If Startup -> ALWAYS infer: Agile Development, Rapid Prototyping, Resource Management
+- If Enterprise -> ALWAYS infer: Enterprise Architecture, Scalability, Security Compliance
 
-🔥 EXPERIENCE-BASED INFERENCE (Mark as isInferred=true):
-- If 3+ years experience → ALWAYS infer: Mentoring, Code Review, Best Practices
-- If 5+ years experience → ALWAYS infer: Architecture Design, Technical Leadership, Strategic Thinking
-- If Multiple companies → ALWAYS infer: Adaptability, Knowledge Transfer, Cross-functional Collaboration
-- If Team projects → ALWAYS infer: Collaboration, Communication, Agile Methodologies
-- If Client-facing work → ALWAYS infer: Stakeholder Management, Requirements Gathering, Presentation Skills
+EXPERIENCE-BASED INFERENCE (Mark as isInferred=true):
+- If 3+ years experience -> ALWAYS infer: Mentoring, Code Review, Best Practices
+- If 5+ years experience -> ALWAYS infer: Architecture Design, Technical Leadership, Strategic Thinking
+- If Multiple companies -> ALWAYS infer: Adaptability, Knowledge Transfer, Cross-functional Collaboration
+- If Team projects -> ALWAYS infer: Collaboration, Communication, Agile Methodologies
+- If Client-facing work -> ALWAYS infer: Stakeholder Management, Requirements Gathering, Presentation Skills
 
-🔥 EDUCATION-BASED INFERENCE (Mark as isInferred=true):
-- If Computer Science degree → ALWAYS infer: Algorithms, Data Structures, Software Engineering Principles
-- If Engineering degree → ALWAYS infer: Problem Solving, Mathematical Analysis, Systems Thinking
-- If Business degree → ALWAYS infer: Business Analysis, Strategic Thinking, Project Management
-- If Certifications → ALWAYS infer: Continuous Learning, Professional Development, Industry Knowledge
+EDUCATION-BASED INFERENCE (Mark as isInferred=true):
+- If Computer Science degree -> ALWAYS infer: Algorithms, Data Structures, Software Engineering Principles
+- If Engineering degree -> ALWAYS infer: Problem Solving, Mathematical Analysis, Systems Thinking
+- If Business degree -> ALWAYS infer: Business Analysis, Strategic Thinking, Project Management
+- If Certifications -> ALWAYS infer: Continuous Learning, Professional Development, Industry Knowledge
 
-⚠️ CRITICAL: You MUST infer at least 3-5 skills for every resume. Be aggressive about inference - if someone has professional experience, they DEFINITELY have foundational skills that should be inferred and highlighted.
+CRITICAL: You MUST infer at least 3-5 skills for every resume. Be aggressive about inference - if someone has professional experience, they DEFINITELY have foundational skills that should be inferred and highlighted.
 
 EXPERIENCE CALCULATION:
 - Calculate total months of experience from all work history
 - Identify management experience from job titles and descriptions
 - Determine current management level based on most recent role
 
-🔥 EMPLOYMENT EXTRACTION RULES:
+EMPLOYMENT EXTRACTION RULES:
 - ALWAYS look for multiple employment positions in the experience section
 - Each company/employer mentioned should be a separate work experience entry
 - Look for patterns like "Company Name, Location" followed by dates
@@ -308,14 +296,14 @@ EXPERIENCE CALCULATION:
         prompt_parts = [
             f"Please extract structured resume data from the following resume sections:",
             f"",
-            f"🔥 CRITICAL INFERENCE REQUIREMENT:",
+            f"CRITICAL INFERENCE REQUIREMENT:",
             f"You MUST infer at least 3-5 skills that are certain to exist based on this resume.",
             f"Look for job titles, technologies, experience levels, and domains to infer obvious skills.",
             f"",
-            f"⚠️ INFERENCE TRACKING RULES:",
+            f"INFERENCE TRACKING RULES:",
             f"- isInferred=false: ONLY for skills explicitly written in resume (e.g., 'Python', 'React')",
             f"- isInferred=true: For skills you deduce from context (e.g., 'HTML' from React, 'Problem Solving' from Engineer title)",
-            f"- EXAMPLE: Resume says 'Senior Engineer' + 'Python' → 'Python' is explicit (false), 'Mentoring' is inferred (true)",
+            f"- EXAMPLE: Resume says 'Senior Engineer' + 'Python' -> 'Python' is explicit (false), 'Mentoring' is inferred (true)",
             f"- YOU MUST mark inferred skills correctly or the feature will not work!",
             f"",
             f"DOCUMENT INFO:",
@@ -338,7 +326,7 @@ EXPERIENCE CALCULATION:
             f"EXTRACTION REQUIREMENTS:",
             f"1. Extract ALL contact information (name, email, phone, location)",
             f"2. Identify ALL skills mentioned AND infer related skills",
-            f"3. 🔥 CRITICAL: Extract ALL employment positions - look for multiple companies, job titles, and date ranges",
+            f"3. CRITICAL: Extract ALL employment positions - look for multiple companies, job titles, and date ranges",
             f"   - Each company/employer should be a separate work experience entry",
             f"   - Include ALL job positions found in the resume",
             f"   - Pay attention to company names, job titles, and date ranges",
@@ -353,7 +341,7 @@ EXPERIENCE CALCULATION:
         return "\n".join(prompt_parts)
     
     def _create_function_schema(self) -> Dict[str, Any]:
-        """Create the function schema for GPT-4o function calling."""
+        """Create the function schema for GPT function calling."""
         return {
             "name": "extract_resume_data",
             "description": "Extract structured resume data matching the canonical JSON schema",
@@ -389,7 +377,7 @@ EXPERIENCE CALCULATION:
                                 "category": {"type": "string"},
                                 "experienceInMonths": {"type": "integer"},
                                 "lastUsed": {"type": "string"},
-                                "isInferred": {"type": "boolean", "description": "True if skill was inferred by GPT-4o, False if explicitly mentioned"},
+                                "isInferred": {"type": "boolean", "description": "True if skill was inferred by GPT, False if explicitly mentioned"},
                                 "inferredFrom": {"type": "string", "description": "What this skill was inferred from (e.g., 'Streamlit usage')"}
                             },
                             "required": ["name"]
@@ -470,7 +458,7 @@ EXPERIENCE CALCULATION:
         Create ResumeSchema object from extracted data.
         
         Args:
-            extracted_data: Data extracted by GPT-4o
+            extracted_data: Data extracted by GPT
             parsed_doc: Original parsed document
             
         Returns:
@@ -654,7 +642,7 @@ EXPERIENCE CALCULATION:
         Args:
             skill_name: Name of the skill to check
             resume_text: Full resume text content
-            extracted_data: Extracted data from GPT-4o
+            extracted_data: Extracted data from GPT
             
         Returns:
             Tuple of (is_inferred, inferred_from)
