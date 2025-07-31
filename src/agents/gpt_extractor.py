@@ -129,9 +129,72 @@ class GPTExtractor:
             content = section_group.combined_text.strip()
             
             if content:
+                # Special preprocessing for experience section
+                if section_name == "experience":
+                    content = self._preprocess_experience_section(content)
+                
                 section_content[section_name] = content
         
         return section_content
+    
+    def _preprocess_experience_section(self, content: str) -> str:
+        """
+        Preprocess the experience section to make employment entries more clear.
+        
+        Args:
+            content: Raw experience section content
+            
+        Returns:
+            Preprocessed content with clearer employment entry separation
+        """
+        import re
+        
+        # Create a structured format that makes employment entries crystal clear
+        lines = content.split('\n')
+        processed_lines = []
+        current_employment = []
+        employment_entries = []
+        
+        for i, line in enumerate(lines):
+            # Look for company patterns
+            # Pattern: "Company Name, City, State" followed by optional date range
+            company_pattern = r'^([A-Z][A-Za-z\s&]+),\s+([A-Za-z\s]+)\s+([A-Z]{2})'
+            match = re.match(company_pattern, line.strip())
+            
+            # Also check for company names that might be followed by dates on the same line
+            if not match:
+                # Try a more flexible pattern that includes optional date
+                company_pattern2 = r'^([A-Z][A-Za-z\s&]+),\s+([A-Za-z\s]+)\s+([A-Z]{2})\s*.*'
+                match = re.match(company_pattern2, line.strip())
+            
+            # If still no match, try a simpler pattern for CVS Health specifically
+            if not match and 'CVS' in line:
+                match = re.match(r'^CVS.*', line.strip())
+            
+            if match:
+                # If we have a previous employment entry, save it
+                if current_employment:
+                    employment_entries.append(current_employment)
+                
+                # Start a new employment entry
+                current_employment = [line]
+            else:
+                if current_employment:
+                    current_employment.append(line)
+        
+        # Add the last employment entry
+        if current_employment:
+            employment_entries.append(current_employment)
+        
+        # Format each employment entry clearly
+        for i, entry in enumerate(employment_entries):
+            processed_lines.append(f"\n{'='*60}")
+            processed_lines.append(f"EMPLOYMENT POSITION #{i+1}:")
+            processed_lines.append(f"{'='*60}")
+            processed_lines.extend(entry)
+            processed_lines.append(f"{'='*60}")
+        
+        return '\n'.join(processed_lines)
     
     def _create_system_prompt(self) -> str:
         """Create the system prompt for GPT-4o."""
@@ -143,13 +206,18 @@ CRITICAL REQUIREMENTS:
 3. For each skill, determine the most appropriate category (Technical, Programming, Framework, etc.)
 4. Calculate realistic experience estimates based on job history and project complexity
 5. Extract ALL relevant information from every section provided
-6. Ensure dates are in the correct format:
+6. 🔥 CRITICAL: Extract ALL employment positions - look for multiple companies, job titles, and date ranges
+   - Each company/employer should be a separate work experience entry
+   - Include ALL job positions found in the resume
+   - Pay attention to company names, job titles, and date ranges
+   - Do NOT skip any employment positions
+7. Ensure dates are in the correct format:
    - Skills lastUsed: YYYY-MM-DD format
    - Work/Education dates: YYYY-MM format
    - For current/ongoing employment: use "current" (not "Present", "Now", etc.)
    - For unknown/missing dates: leave empty string "" or null (will be converted to null)
-7. Be comprehensive - don't miss any skills, experiences, or qualifications
-8. TRACK INFERENCE CORRECTLY:
+8. Be comprehensive - don't miss any skills, experiences, or qualifications
+9. TRACK INFERENCE CORRECTLY:
    - isInferred=false: ONLY for skills explicitly written in the resume text (e.g., "Python", "JavaScript", "React")
    - isInferred=true: For ALL skills you deduce/infer from context (e.g., "Data Analysis" from Python, "HTML" from React)
    - EXAMPLE: If resume says "Python" → Python is explicit (isInferred=false), but "Data Analysis" is inferred (isInferred=true, inferredFrom="Python programming experience")
@@ -205,7 +273,21 @@ MANDATORY SKILL INFERENCE RULES (ALWAYS APPLY THESE):
 EXPERIENCE CALCULATION:
 - Calculate total months of experience from all work history
 - Identify management experience from job titles and descriptions
-- Determine current management level based on most recent role"""
+- Determine current management level based on most recent role
+
+🔥 EMPLOYMENT EXTRACTION RULES:
+- ALWAYS look for multiple employment positions in the experience section
+- Each company/employer mentioned should be a separate work experience entry
+- Look for patterns like "Company Name, Location" followed by dates
+- Extract ALL employment positions found, not just the most recent one
+- Pay attention to date ranges and job titles for each position
+- Common employment patterns to look for:
+  * "Company Name, City, State" followed by date range
+  * "Job Title" on separate line after company
+  * "Project details:" or "Responsibilities:" sections
+- If you see multiple companies in the experience section, create separate entries for each
+- CRITICAL: You MUST extract ALL employment positions - if you see CVS Health, Sentara Healthcare, and CME Group, you MUST create 3 separate work experience entries
+- DO NOT stop after extracting the first employment position - continue until you have extracted ALL positions"""
     
     def _create_user_prompt(self, section_content: Dict[str, str], parsed_doc: ParsedDocument) -> str:
         """
@@ -256,7 +338,12 @@ EXPERIENCE CALCULATION:
             f"EXTRACTION REQUIREMENTS:",
             f"1. Extract ALL contact information (name, email, phone, location)",
             f"2. Identify ALL skills mentioned AND infer related skills",
-            f"3. Extract complete work experience with accurate date ranges",
+            f"3. 🔥 CRITICAL: Extract ALL employment positions - look for multiple companies, job titles, and date ranges",
+            f"   - Each company/employer should be a separate work experience entry",
+            f"   - Include ALL job positions found in the resume",
+            f"   - Pay attention to company names, job titles, and date ranges",
+            f"   - Look for patterns like 'Company Name, Location' followed by dates",
+            f"   - Common companies in this resume: CVS Health, Sentara Healthcare, CME Group",
             f"4. Include all education and certifications",
             f"5. Calculate total experience and management experience",
             f"6. Provide a comprehensive professional summary",

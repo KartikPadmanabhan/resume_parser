@@ -106,15 +106,27 @@ class ContentProcessor:
         """
         text = element.text.lower().strip()
         
-        # Only consider titles and headers for section detection
-        if element.element_type not in [ElementType.TITLE, ElementType.HEADER]:
-            return ResumeSection.UNKNOWN
+        # Check against section patterns for titles and headers
+        if element.element_type in [ElementType.TITLE, ElementType.HEADER]:
+            for section, patterns in self.section_patterns.items():
+                for pattern in patterns:
+                    if re.search(pattern, text, re.IGNORECASE):
+                        return section
         
-        # Check against section patterns
-        for section, patterns in self.section_patterns.items():
-            for pattern in patterns:
+        # Also check for employment patterns in narrative text
+        if element.element_type == ElementType.NARRATIVE_TEXT:
+            # Look for employment section headers
+            employment_patterns = [
+                r'^(work\s*|professional\s*)?experience\s*:?$',
+                r'^employment\s*history\s*:?$',
+                r'^career\s*history\s*:?$',
+                r'^work\s*history\s*:?$',
+                r'^professional\s*background\s*:?$'
+            ]
+            
+            for pattern in employment_patterns:
                 if re.search(pattern, text, re.IGNORECASE):
-                    return section
+                    return ResumeSection.EXPERIENCE
         
         return ResumeSection.UNKNOWN
     

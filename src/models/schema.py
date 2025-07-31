@@ -166,12 +166,14 @@ class WorkExperience(BaseModel):
     jobTitle: str
     employer: str
     location: Optional[Location] = None
-    startDate: str = Field(description="Date in YYYY-MM format")
-    endDate: str = Field(description="Date in YYYY-MM format or 'current'")
+    startDate: Optional[str] = Field(None, description="Date in YYYY-MM format")
+    endDate: Optional[str] = Field(None, description="Date in YYYY-MM format or 'current'")
     description: str
     
     @validator('startDate')
     def validate_start_date(cls, v):
+        if v is None or v.strip() == "":
+            return None
         parsed_date = parse_flexible_date(v)
         if parsed_date is None:
             raise ValueError('startDate must be in a recognizable date format (YYYY-MM, YYYY-MM-DD, month names, etc.)')
@@ -179,6 +181,8 @@ class WorkExperience(BaseModel):
     
     @validator('endDate')
     def validate_end_date(cls, v):
+        if v is None or v.strip() == "":
+            return None
         parsed_date = parse_flexible_date(v)
         if parsed_date is None:
             raise ValueError('endDate must be in a recognizable date format (YYYY-MM, YYYY-MM-DD, month names, etc.) or indicate current employment ("current", "present", etc.)')
@@ -187,9 +191,9 @@ class WorkExperience(BaseModel):
     @validator('endDate')
     def validate_date_order(cls, v, values):
         """Validate that start date is before end date."""
-        if 'startDate' in values and v != 'current':
+        if 'startDate' in values and v is not None and v != 'current':
             start_date = values['startDate']
-            if not validate_date_order(start_date, v):
+            if start_date is not None and not validate_date_order(start_date, v):
                 raise ValueError('startDate must be before or equal to endDate')
         return v
 
