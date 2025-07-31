@@ -517,7 +517,7 @@ class ResumeParserUI:
         st.subheader("Raw JSON Output")
         
         # Convert to dict and display
-        resume_dict = resume.dict()
+        resume_dict = resume.model_dump()
         json_str = json.dumps(resume_dict, indent=2, ensure_ascii=False)
         
         st.code(json_str, language="json")

@@ -152,21 +152,44 @@ class GPTExtractor:
         employment_entries = []
         current_entry = []
         
-        # Company patterns: Look for company names followed by location and dates
+        # More flexible company patterns to detect employment positions
         company_patterns = [
-            r'^([A-Z][A-Za-z\s&]+),\s+([A-Za-z\s]+)\s+([A-Z]{2})',  # Company, City, State
-            r'^([A-Z][A-Za-z\s&]+),\s+([A-Za-z\s]+)\s+([A-Z]{2})\s*.*',  # With date on same line
+            # Standard format: Company, City, State
+            r'^([A-Z][A-Za-z\s&\.]+),\s+([A-Za-z\s]+)\s+([A-Z]{2})',
+            # Company with dates on same line
+            r'^([A-Z][A-Za-z\s&\.]+),\s+([A-Za-z\s]+)\s+([A-Z]{2})\s*.*\d{4}',
+            # Company with just location
+            r'^([A-Z][A-Za-z\s&\.]+),\s+([A-Za-z\s]+)',
+            # Company with dates
+            r'^([A-Z][A-Za-z\s&\.]+)\s+.*\d{4}',
+            # Job title patterns that often indicate new position
+            r'^(Senior|Lead|Principal|Staff|Junior|Associate)\s+[A-Za-z\s]+',
+            # Date patterns that might indicate new position
+            r'^\d{4}\s*[-–]\s*\d{4}|\d{4}\s*[-–]\s*Present|\d{4}\s*[-–]\s*Current',
         ]
         
         for line in lines:
-            # Check if line contains a company name
+            line_stripped = line.strip()
+            
+            # Check if line contains a company name or job title pattern
             is_company_line = any(
-                re.match(pattern, line.strip()) 
+                re.match(pattern, line_stripped) 
                 for pattern in company_patterns
             )
             
-            if is_company_line and current_entry:
-                # Save previous entry and start new one
+            # Also check for common employment indicators
+            employment_indicators = [
+                'experience', 'employment', 'work history', 'professional experience',
+                'career', 'positions', 'roles', 'jobs'
+            ]
+            
+            has_employment_indicator = any(
+                indicator in line_stripped.lower() 
+                for indicator in employment_indicators
+            )
+            
+            # If we find a new employment position and we have a current entry, save it
+            if (is_company_line or has_employment_indicator) and current_entry:
                 employment_entries.append(current_entry)
                 current_entry = [line]
             else:
@@ -175,6 +198,27 @@ class GPTExtractor:
         # Add the last entry
         if current_entry:
             employment_entries.append(current_entry)
+        
+        # If we didn't find any clear separations, try to split by date patterns
+        if len(employment_entries) <= 1:
+            # Look for date patterns to split employment entries
+            date_pattern = r'\d{4}\s*[-–]\s*(?:\d{4}|Present|Current)'
+            if re.search(date_pattern, content):
+                # Split by date patterns
+                sections = re.split(f'({date_pattern})', content)
+                employment_entries = []
+                current_section = []
+                
+                for section in sections:
+                    if re.match(date_pattern, section.strip()):
+                        if current_section:
+                            employment_entries.append(current_section)
+                        current_section = [section]
+                    else:
+                        current_section.append(section)
+                
+                if current_section:
+                    employment_entries.append(current_section)
         
         # Format with clear separators
         processed_lines = []
@@ -222,6 +266,10 @@ EMPLOYMENT EXTRACTION RULES:
 - CRITICAL: Extract ALL employment positions - continue until you have extracted ALL positions
 - Do NOT stop after extracting the first employment position
 - Each company should have its own job title, dates, and description
+- Look for ALL companies mentioned in the experience section
+- If you see CVS Health, Sentara Healthcare, and CME Group, you MUST create 3 separate work experience entries
+- Look for job titles, company names, and date ranges to identify separate positions
+- Be thorough - extract every employment position you can identify
 
 ROLE-BASED INFERENCE (Mark as isInferred=true):
 - If "Senior" title -> ALWAYS infer: Mentoring, Code Review, Technical Leadership
@@ -334,6 +382,8 @@ EMPLOYMENT EXTRACTION RULES:
             f"   - Look for all companies mentioned in the experience section",
             f"   - Extract every employment position you find",
             f"   - Do NOT stop after the first company - extract ALL companies",
+            f"   - Be thorough and comprehensive - extract every employment position",
+            f"   - Look for job titles, company names, and date ranges to identify separate positions",
             f"4. Include all education and certifications",
             f"5. Calculate total experience and management experience",
             f"6. Provide a comprehensive professional summary",
