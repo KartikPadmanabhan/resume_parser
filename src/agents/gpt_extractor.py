@@ -29,7 +29,6 @@ class GPTExtractor:
         
         self.client = OpenAI(api_key=settings.OPENAI_API_KEY)
         self.model = settings.OPENAI_MODEL
-        self.skill_inference_db = self._build_skill_inference_database()
         
         # Initialize token tracking
         self.token_tracker = TokenTracker()
@@ -153,11 +152,10 @@ class GPTExtractor:
         employment_entries = []
         current_entry = []
         
-        # Company pattern: "Company Name, City, State" with optional date
+        # Company patterns: Look for company names followed by location and dates
         company_patterns = [
-            r'^([A-Z][A-Za-z\s&]+),\s+([A-Za-z\s]+)\s+([A-Z]{2})',  # Basic pattern
-            r'^([A-Z][A-Za-z\s&]+),\s+([A-Za-z\s]+)\s+([A-Z]{2})\s*.*',  # With date
-            r'^CVS.*'  # Special case for CVS Health
+            r'^([A-Z][A-Za-z\s&]+),\s+([A-Za-z\s]+)\s+([A-Z]{2})',  # Company, City, State
+            r'^([A-Z][A-Za-z\s&]+),\s+([A-Za-z\s]+)\s+([A-Z]{2})\s*.*',  # With date on same line
         ]
         
         for line in lines:
@@ -202,19 +200,17 @@ CRITICAL REQUIREMENTS:
 4. Use correct date formats: YYYY-MM for work/education, YYYY-MM-DD for skills
 5. Use "current" for ongoing employment, empty string for unknown dates
 
-SKILL INFERENCE RULES (mark as isInferred=true):
-- Python -> Data Analysis, Problem Solving, OOP
-- JavaScript -> HTML, CSS, DOM Manipulation
-- React -> JavaScript, HTML, CSS, Component Architecture
-- Node.js -> JavaScript, Backend Development, API Development
-- SQL/Database -> Data Modeling, Query Optimization
-- Git -> Version Control, Collaboration
-- AWS/Cloud -> Cloud Architecture, Scalability
-- Docker -> Containerization, DevOps
-- Machine Learning -> Python, Statistics, Data Analysis
-- API development -> REST, JSON, HTTP
-- Frontend work -> User Experience, Responsive Design
-- Backend work -> Server Architecture, Database Integration
+GENERIC SKILL INFERENCE RULES (mark as isInferred=true):
+- For ANY technology mentioned, infer related foundational skills
+- For programming languages, infer: Problem Solving, Debugging, Software Development
+- For frameworks/libraries, infer the underlying languages and concepts
+- For databases, infer: Data Modeling, Query Optimization, Data Management
+- For cloud platforms, infer: Infrastructure Management, Scalability, DevOps
+- For tools, infer the broader skill categories they represent
+- For job titles, infer role-based skills (leadership, management, technical skills)
+- For industries, infer domain-specific knowledge and compliance requirements
+- For experience levels, infer progressive skill development
+- For education, infer foundational knowledge areas
 
 EMPLOYMENT EXTRACTION RULES:
 - Look for multiple companies in experience section
@@ -223,8 +219,9 @@ EMPLOYMENT EXTRACTION RULES:
 - Pay attention to date ranges and job titles for each position
 - Common patterns: "Company Name, City, State" followed by date range
 - If you see multiple companies, create separate entries for each
-- CRITICAL: Extract ALL employment positions - if you see CVS Health, Sentara Healthcare, and CME Group, create 3 separate entries
-- DO NOT stop after extracting the first employment position - continue until you have extracted ALL positions
+- CRITICAL: Extract ALL employment positions - continue until you have extracted ALL positions
+- Do NOT stop after extracting the first employment position
+- Each company should have its own job title, dates, and description
 
 ROLE-BASED INFERENCE (Mark as isInferred=true):
 - If "Senior" title -> ALWAYS infer: Mentoring, Code Review, Technical Leadership
@@ -296,14 +293,17 @@ EMPLOYMENT EXTRACTION RULES:
         prompt_parts = [
             f"Please extract structured resume data from the following resume sections:",
             f"",
-            f"CRITICAL INFERENCE REQUIREMENT:",
+            f"CRITICAL GENERIC INFERENCE REQUIREMENT:",
             f"You MUST infer at least 3-5 skills that are certain to exist based on this resume.",
-            f"Look for job titles, technologies, experience levels, and domains to infer obvious skills.",
+            f"Use your knowledge to infer skills from ANY technology, role, industry, or experience mentioned.",
+            f"Be comprehensive - infer foundational skills, related technologies, and domain knowledge.",
             f"",
             f"INFERENCE TRACKING RULES:",
             f"- isInferred=false: ONLY for skills explicitly written in resume (e.g., 'Python', 'React')",
-            f"- isInferred=true: For skills you deduce from context (e.g., 'HTML' from React, 'Problem Solving' from Engineer title)",
+            f"- isInferred=true: For skills you deduce from context using your knowledge",
             f"- EXAMPLE: Resume says 'Senior Engineer' + 'Python' -> 'Python' is explicit (false), 'Mentoring' is inferred (true)",
+            f"- EXAMPLE: Resume mentions 'AWS' -> infer 'Cloud Computing', 'Infrastructure Management' (true)",
+            f"- EXAMPLE: Resume mentions 'MongoDB' -> infer 'NoSQL', 'Database Design' (true)",
             f"- YOU MUST mark inferred skills correctly or the feature will not work!",
             f"",
             f"DOCUMENT INFO:",
@@ -331,7 +331,9 @@ EMPLOYMENT EXTRACTION RULES:
             f"   - Include ALL job positions found in the resume",
             f"   - Pay attention to company names, job titles, and date ranges",
             f"   - Look for patterns like 'Company Name, Location' followed by dates",
-            f"   - Common companies in this resume: CVS Health, Sentara Healthcare, CME Group",
+            f"   - Look for all companies mentioned in the experience section",
+            f"   - Extract every employment position you find",
+            f"   - Do NOT stop after the first company - extract ALL companies",
             f"4. Include all education and certifications",
             f"5. Calculate total experience and management experience",
             f"6. Provide a comprehensive professional summary",
@@ -677,111 +679,31 @@ EMPLOYMENT EXTRACTION RULES:
                 if variation in resume_text:
                     return False, None
         
-        # Define inference rules based on what's in the resume
-        inference_rules = {
-            # Technical stack inferences
-            "data analysis": ["python", "analytics", "data"],
-            "problem solving": ["engineer", "developer", "software", "technical"],
-            "object-oriented programming": ["python", "java", "c++", "oop"],
-            "html": ["react", "javascript", "web", "frontend", "ui"],
-            "css": ["react", "javascript", "web", "frontend", "ui"],
-            "dom manipulation": ["javascript", "react", "frontend"],
-            "debugging": ["developer", "engineer", "programming", "software"],
-            "component architecture": ["react", "frontend", "ui"],
-            "state management": ["react", "frontend", "javascript"],
-            "backend development": ["node.js", "django", "flask", "api", "server"],
-            "api development": ["backend", "rest", "node.js", "django", "flask"],
-            "cloud architecture": ["aws", "gcp", "cloud", "azure"],
-            "scalability": ["aws", "cloud", "microservices", "architecture"],
-            "infrastructure management": ["aws", "cloud", "devops", "docker"],
-            
-            # Role-based inferences
-            "mentoring": ["senior", "lead", "mentor"],
-            "code review": ["senior", "lead", "engineer"],
-            "technical leadership": ["senior", "lead", "architect"],
-            "project management": ["lead", "manager", "project"],
-            "team coordination": ["lead", "manager", "team"],
-            "technical decision making": ["lead", "senior", "architect"],
-            "technical documentation": ["engineer", "developer", "technical"],
-            "testing": ["engineer", "developer", "qa", "software"],
-            
-            # Experience-based inferences
-            "collaboration": ["team", "agile", "cross-functional"],
-            "agile methodologies": ["agile", "sprint", "scrum"],
-            "version control": ["git", "github", "development"],
-            "software development lifecycle": ["developer", "engineer", "software"],
-            
-            # Education-based inferences
-            "algorithms": ["computer science", "cs", "engineering"],
-            "data structures": ["computer science", "cs", "programming"],
-            "software engineering principles": ["computer science", "cs", "engineering"],
-        }
+        # Generic inference detection - check if skill can be inferred from resume content
+        # This is a simplified approach - in practice, GPT's inference is more sophisticated
+        generic_inference_indicators = [
+            # Technical skills that are typically inferred
+            "data analysis", "problem solving", "debugging", "testing", "documentation",
+            "collaboration", "agile", "version control", "software development lifecycle",
+            "mentoring", "code review", "technical leadership", "project management",
+            "team coordination", "technical decision making", "technical documentation",
+            "algorithms", "data structures", "software engineering principles",
+            "cloud computing", "infrastructure", "devops", "scalability", "security",
+            "database design", "data modeling", "query optimization", "data management",
+            "frontend development", "backend development", "api development", "web development",
+            "mobile development", "cross-platform development", "responsive design",
+            "user experience", "user interface", "component architecture", "state management",
+            "microservices", "containerization", "deployment", "automation", "ci/cd"
+        ]
         
-        # Check if skill can be inferred from resume content
-        if skill_lower in inference_rules:
-            triggers = inference_rules[skill_lower]
-            for trigger in triggers:
-                if trigger in resume_text:
-                    return True, f"{trigger.title()} experience"
+        # Check if skill is in the generic inference list
+        if skill_lower in generic_inference_indicators:
+            return True, "Professional experience context"
         
         # Default: assume it's inferred if not found in text
         return True, "Professional experience context"
     
-    def _build_skill_inference_database(self) -> Dict[str, List[str]]:
-        """
-        Build a database of skill inferences for comprehensive skill extraction.
-        
-        Returns:
-            Dictionary mapping technologies to inferred skills
-        """
-        return {
-            # Web Frameworks → Languages & Skills
-            "streamlit": ["Python", "Web Development", "Data Visualization", "Dashboard Development"],
-            "django": ["Python", "Web Development", "Backend Development", "MVC Architecture", "ORM"],
-            "flask": ["Python", "Web Development", "Backend Development", "REST APIs", "Microservices"],
-            "react": ["JavaScript", "Frontend Development", "HTML", "CSS", "Component Architecture", "SPA"],
-            "angular": ["TypeScript", "JavaScript", "Frontend Development", "HTML", "CSS", "SPA"],
-            "vue": ["JavaScript", "Frontend Development", "HTML", "CSS", "Component Architecture"],
-            "node.js": ["JavaScript", "Backend Development", "Server-side Development", "npm"],
-            "express": ["JavaScript", "Node.js", "Backend Development", "REST APIs", "Web Servers"],
-            
-            # Cloud Platforms → DevOps & Infrastructure
-            "aws": ["Cloud Computing", "DevOps", "Infrastructure", "Scalability", "EC2", "S3"],
-            "azure": ["Cloud Computing", "DevOps", "Infrastructure", "Microsoft Technologies"],
-            "gcp": ["Cloud Computing", "DevOps", "Infrastructure", "Google Technologies"],
-            "docker": ["Containerization", "DevOps", "Linux", "Deployment", "Microservices"],
-            "kubernetes": ["Container Orchestration", "DevOps", "Scalability", "Microservices", "Linux"],
-            
-            # Databases → Data Skills
-            "postgresql": ["SQL", "Database Design", "Relational Databases", "Data Modeling"],
-            "mysql": ["SQL", "Database Design", "Relational Databases", "Data Modeling"],
-            "mongodb": ["NoSQL", "Database Design", "Document Databases", "JSON"],
-            "redis": ["Caching", "In-memory Databases", "Performance Optimization"],
-            
-            # Data Science & ML → Analytics Skills
-            "pandas": ["Python", "Data Analysis", "Data Manipulation", "Statistics"],
-            "numpy": ["Python", "Scientific Computing", "Mathematical Computing", "Data Analysis"],
-            "scikit-learn": ["Machine Learning", "Python", "Data Science", "Predictive Modeling"],
-            "tensorflow": ["Machine Learning", "Deep Learning", "Python", "AI", "Neural Networks"],
-            "pytorch": ["Machine Learning", "Deep Learning", "Python", "AI", "Neural Networks"],
-            
-            # Mobile Development
-            "react native": ["Mobile Development", "JavaScript", "Cross-platform Development", "iOS", "Android"],
-            "flutter": ["Mobile Development", "Dart", "Cross-platform Development", "iOS", "Android"],
-            "swift": ["iOS Development", "Mobile Development", "Apple Ecosystem"],
-            "kotlin": ["Android Development", "Mobile Development", "JVM Languages"],
-            
-            # DevOps & Tools
-            "jenkins": ["CI/CD", "DevOps", "Automation", "Build Pipelines"],
-            "git": ["Version Control", "Collaboration", "Source Code Management"],
-            "github": ["Version Control", "Collaboration", "Open Source", "Git"],
-            "gitlab": ["Version Control", "CI/CD", "DevOps", "Git"],
-            
-            # Testing
-            "pytest": ["Python", "Testing", "Test Automation", "Quality Assurance"],
-            "jest": ["JavaScript", "Testing", "Frontend Testing", "Unit Testing"],
-            "selenium": ["Test Automation", "Web Testing", "Quality Assurance"],
-        }
+
     
     def get_extraction_stats(self, resume_schema: ResumeSchema) -> Dict[str, Any]:
         """
