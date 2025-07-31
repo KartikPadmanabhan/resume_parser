@@ -139,6 +139,7 @@ class GPTExtractor:
     def _preprocess_experience_section(self, content: str) -> str:
         """
         Preprocess experience section to add clear employment position separators.
+        Uses unstructured library's capabilities and enhanced pattern matching.
         
         Args:
             content: Raw experience section content
@@ -152,44 +153,54 @@ class GPTExtractor:
         employment_entries = []
         current_entry = []
         
-        # More flexible company patterns to detect employment positions
-        company_patterns = [
-            # Standard format: Company, City, State
-            r'^([A-Z][A-Za-z\s&\.]+),\s+([A-Za-z\s]+)\s+([A-Z]{2})',
-            # Company with dates on same line
-            r'^([A-Z][A-Za-z\s&\.]+),\s+([A-Za-z\s]+)\s+([A-Z]{2})\s*.*\d{4}',
-            # Company with just location
-            r'^([A-Z][A-Za-z\s&\.]+),\s+([A-Za-z\s]+)',
-            # Company with dates
-            r'^([A-Z][A-Za-z\s&\.]+)\s+.*\d{4}',
-            # Job title patterns that often indicate new position
-            r'^(Senior|Lead|Principal|Staff|Junior|Associate)\s+[A-Za-z\s]+',
-            # Date patterns that might indicate new position
-            r'^\d{4}\s*[-–]\s*\d{4}|\d{4}\s*[-–]\s*Present|\d{4}\s*[-–]\s*Current',
+        # Enhanced patterns that work better with unstructured library output
+        employment_patterns = [
+            # Company patterns with various formats
+            r'^([A-Z][A-Za-z\s&\.\-]+),\s+([A-Za-z\s]+)\s+([A-Z]{2})',  # Company, City, State
+            r'^([A-Z][A-Za-z\s&\.\-]+),\s+([A-Za-z\s]+)',  # Company, Location
+            r'^([A-Z][A-Za-z\s&\.\-]+)\s+.*\d{4}',  # Company with dates
+            r'^([A-Z][A-Za-z\s&\.\-]+)\s*$',  # Company name alone
+            
+            # Job title patterns
+            r'^(Senior|Lead|Principal|Staff|Junior|Associate|Software|Data|Product|Project|Technical|Business|Systems)\s+[A-Za-z\s]+',
+            r'^(Engineer|Developer|Analyst|Manager|Director|Consultant|Specialist|Architect|Designer|Coordinator)',
+            
+            # Date patterns
+            r'^\d{4}\s*[-–]\s*(?:\d{4}|Present|Current|Now)',
+            r'^\d{1,2}/\d{4}\s*[-–]\s*(?:\d{1,2}/\d{4}|Present|Current)',
+            
+            # Employment section headers
+            r'^(Experience|Employment|Work History|Professional Experience|Career|Positions|Roles|Jobs)',
+        ]
+        
+        # Employment indicators that suggest new positions
+        employment_indicators = [
+            'experience', 'employment', 'work history', 'professional experience',
+            'career', 'positions', 'roles', 'jobs', 'senior', 'lead', 'principal',
+            'staff', 'junior', 'associate', 'engineer', 'developer', 'analyst',
+            'manager', 'director', 'consultant', 'specialist', 'architect'
         ]
         
         for line in lines:
             line_stripped = line.strip()
             
-            # Check if line contains a company name or job title pattern
-            is_company_line = any(
-                re.match(pattern, line_stripped) 
-                for pattern in company_patterns
+            # Check if line matches employment patterns
+            is_employment_line = any(
+                re.match(pattern, line_stripped, re.IGNORECASE) 
+                for pattern in employment_patterns
             )
             
-            # Also check for common employment indicators
-            employment_indicators = [
-                'experience', 'employment', 'work history', 'professional experience',
-                'career', 'positions', 'roles', 'jobs'
-            ]
-            
+            # Check for employment indicators
             has_employment_indicator = any(
                 indicator in line_stripped.lower() 
                 for indicator in employment_indicators
             )
             
+            # Check for date patterns that often indicate new positions
+            has_date_pattern = bool(re.search(r'\d{4}', line_stripped))
+            
             # If we find a new employment position and we have a current entry, save it
-            if (is_company_line or has_employment_indicator) and current_entry:
+            if (is_employment_line or (has_employment_indicator and has_date_pattern)) and current_entry:
                 employment_entries.append(current_entry)
                 current_entry = [line]
             else:
@@ -199,26 +210,36 @@ class GPTExtractor:
         if current_entry:
             employment_entries.append(current_entry)
         
-        # If we didn't find any clear separations, try to split by date patterns
+        # Enhanced fallback: If we didn't find clear separations, use more aggressive splitting
         if len(employment_entries) <= 1:
-            # Look for date patterns to split employment entries
-            date_pattern = r'\d{4}\s*[-–]\s*(?:\d{4}|Present|Current)'
-            if re.search(date_pattern, content):
-                # Split by date patterns
-                sections = re.split(f'({date_pattern})', content)
-                employment_entries = []
-                current_section = []
-                
-                for section in sections:
-                    if re.match(date_pattern, section.strip()):
-                        if current_section:
-                            employment_entries.append(current_section)
-                        current_section = [section]
-                    else:
-                        current_section.append(section)
-                
-                if current_section:
-                    employment_entries.append(current_section)
+            # Try splitting by multiple date patterns
+            date_patterns = [
+                r'\d{4}\s*[-–]\s*(?:\d{4}|Present|Current|Now)',
+                r'\d{1,2}/\d{4}\s*[-–]\s*(?:\d{1,2}/\d{4}|Present|Current)',
+                r'\d{4}\s*[-–]\s*\d{4}',
+            ]
+            
+            for pattern in date_patterns:
+                if re.search(pattern, content):
+                    # Split by this date pattern
+                    sections = re.split(f'({pattern})', content)
+                    employment_entries = []
+                    current_section = []
+                    
+                    for section in sections:
+                        if re.match(pattern, section.strip()):
+                            if current_section:
+                                employment_entries.append(current_section)
+                            current_section = [section]
+                        else:
+                            current_section.append(section)
+                    
+                    if current_section:
+                        employment_entries.append(current_section)
+                    
+                    # If we found multiple sections, break
+                    if len(employment_entries) > 1:
+                        break
         
         # Format with clear separators
         processed_lines = []
@@ -270,6 +291,10 @@ EMPLOYMENT EXTRACTION RULES:
 - If you see CVS Health, Sentara Healthcare, and CME Group, you MUST create 3 separate work experience entries
 - Look for job titles, company names, and date ranges to identify separate positions
 - Be thorough - extract every employment position you can identify
+- The unstructured library has already identified employment-related content - use this information
+- Look for employment position separators (=== EMPLOYMENT POSITION #X ===) in the content
+- Each separated section represents a different employment position
+- Pay attention to the structure provided by the preprocessing
 
 ROLE-BASED INFERENCE (Mark as isInferred=true):
 - If "Senior" title -> ALWAYS infer: Mentoring, Code Review, Technical Leadership
@@ -384,6 +409,8 @@ EMPLOYMENT EXTRACTION RULES:
             f"   - Do NOT stop after the first company - extract ALL companies",
             f"   - Be thorough and comprehensive - extract every employment position",
             f"   - Look for job titles, company names, and date ranges to identify separate positions",
+            f"   - IMPORTANT: Look for employment position separators (=== EMPLOYMENT POSITION #X ===)",
+            f"   - Each separated section represents a different employment position to extract",
             f"4. Include all education and certifications",
             f"5. Calculate total experience and management experience",
             f"6. Provide a comprehensive professional summary",
