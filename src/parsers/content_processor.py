@@ -106,8 +106,16 @@ class ContentProcessor:
         """
         text = element.text.lower().strip()
         
-        # Only consider titles and headers for section detection
-        if element.element_type not in [ElementType.TITLE, ElementType.HEADER]:
+        # Consider titles, headers, and narrative text elements for section detection
+        # Many resumes use Text elements (mapped to NARRATIVE_TEXT) for section headers
+        valid_types = [ElementType.TITLE, ElementType.HEADER, ElementType.NARRATIVE_TEXT]
+        
+        if element.element_type not in valid_types:
+            return ResumeSection.UNKNOWN
+        
+        # For NARRATIVE_TEXT elements, only consider short ones that could be headers
+        # This filters out long paragraphs but keeps section headers
+        if element.element_type == ElementType.NARRATIVE_TEXT and len(text) > 50:
             return ResumeSection.UNKNOWN
         
         # Check against section patterns

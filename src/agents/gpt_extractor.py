@@ -218,6 +218,8 @@ EXPERIENCE CALCULATION:
         Returns:
             Formatted user prompt
         """
+
+        
         # Sanitize section content to prevent JSON issues
         sanitized_content = {}
         for section_name, content in section_content.items():

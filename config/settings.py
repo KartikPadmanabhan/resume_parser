@@ -32,7 +32,7 @@ class AppSettings(BaseSettings):
     # OpenAI settings
     OPENAI_API_KEY: str = Field(default="", env="OPENAI_API_KEY")
     OPENAI_MODEL: str = Field(default="gpt-4o", description="OpenAI model to use")
-    OPENAI_MAX_TOKENS: int = Field(default=4000, description="Maximum tokens for OpenAI response")
+    OPENAI_MAX_TOKENS: int = Field(default=12000, description="Maximum tokens for OpenAI response (increased for large resumes)")
     OPENAI_TEMPERATURE: float = Field(default=0.1, description="Temperature for OpenAI model")
     
     # Processing settings

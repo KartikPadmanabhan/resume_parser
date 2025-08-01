@@ -166,28 +166,37 @@ class WorkExperience(BaseModel):
     jobTitle: str
     employer: str
     location: Optional[Location] = None
-    startDate: str = Field(description="Date in YYYY-MM format")
-    endDate: str = Field(description="Date in YYYY-MM format or 'current'")
+    startDate: Optional[str] = Field(None, description="Date in YYYY-MM format or None if unknown")
+    endDate: Optional[str] = Field(None, description="Date in YYYY-MM format, 'current', or None if unknown")
     description: str
     
     @validator('startDate')
     def validate_start_date(cls, v):
+        # Handle empty strings from GPT responses
+        if not v or v.strip() == "":
+            return None
         parsed_date = parse_flexible_date(v)
         if parsed_date is None:
-            raise ValueError('startDate must be in a recognizable date format (YYYY-MM, YYYY-MM-DD, month names, etc.)')
+            raise ValueError('startDate must be in a recognizable date format (YYYY-MM, YYYY-MM-DD, month names, etc.) or empty for unknown dates')
         return parsed_date
     
     @validator('endDate')
     def validate_end_date(cls, v):
+        # Handle empty strings from GPT responses
+        if not v or v.strip() == "":
+            return None
         parsed_date = parse_flexible_date(v)
         if parsed_date is None:
-            raise ValueError('endDate must be in a recognizable date format (YYYY-MM, YYYY-MM-DD, month names, etc.) or indicate current employment ("current", "present", etc.)')
+            raise ValueError('endDate must be in a recognizable date format (YYYY-MM, YYYY-MM-DD, month names, etc.), indicate current employment ("current", "present", etc.), or be empty for unknown dates')
         return parsed_date
     
     @validator('endDate')
     def validate_date_order(cls, v, values):
         """Validate that start date is before end date."""
-        if 'startDate' in values and v != 'current':
+        # Skip validation if either date is None or missing
+        if 'startDate' not in values or values['startDate'] is None or v is None:
+            return v
+        if v != 'current':
             start_date = values['startDate']
             if not validate_date_order(start_date, v):
                 raise ValueError('startDate must be before or equal to endDate')
