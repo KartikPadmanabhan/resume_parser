@@ -9,10 +9,6 @@ from typing import Optional, Dict, Any, List
 from io import BytesIO
 import traceback
 
-import sys
-import os
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
-
 from config.settings import settings
 from src.ui.file_validator import FileValidator, FileValidationError
 from src.models.schema import ResumeSchema
